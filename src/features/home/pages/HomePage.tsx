@@ -9,12 +9,16 @@ import { BirthdayCountdown } from "../components/BirthdayCountdown";
 import { PendingTasks } from "../components/PendingTasks";
 import { ConfirmedGuestsList } from "../components/ConfirmedGuestsList";
 import { MusicSummaryChart } from "../components/MusicSummaryChart";
+import { useNavigate } from "react-router-dom";
+import { Shield } from "lucide-react";
 
 interface Props {
   user: User;
 }
 
 export const HomePage: React.FC<Props> = ({ user }) => {
+  const navigate = useNavigate();
+
   const allUsers = useData(() => db.getUsers(), "users");
   const preferences = useData(() => db.getPreferences(), "prefs");
   const songs = useData(() => db.getSongs(), "songs");
@@ -62,12 +66,33 @@ export const HomePage: React.FC<Props> = ({ user }) => {
     return tasks;
   }, [user.musicComment, user.tableId, myPrefs.length, mySongs.length]);
 
+  const handleOpenAdmin = () => {
+    // mismo concepto que antes: admin con token
+    navigate("/admin?token=secret123");
+  };
+
+  const showAdminShield = user.isAdmin === true;
+
   return (
     <>
-      <PageTitle
-        title={`Hola, ${user.name.split(" ")[0]} 👋`}
-        subtitle="Te doy la bienvenida al panel de la fiesta."
-      />
+      <div className="flex items-start justify-between gap-3">
+        <PageTitle
+          title={`Hola, ${user.name.split(" ")[0]} 👋`}
+          subtitle="Te doy la bienvenida al panel de la fiesta."
+        />
+
+        {showAdminShield && (
+          <button
+            type="button"
+            onClick={handleOpenAdmin}
+            className="mt-1 inline-flex items-center justify-center p-2 rounded-full bg-white/5 border border-cyan-400/60 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-100 hover:shadow-[0_0_12px_rgba(34,211,238,0.8)] transition-all"
+            title="Abrir panel de administración"
+          >
+            <Shield size={18} />
+          </button>
+        )}
+      </div>
+
       <BirthdayCountdown />
 
       <div className="mt-6 space-y-4">
