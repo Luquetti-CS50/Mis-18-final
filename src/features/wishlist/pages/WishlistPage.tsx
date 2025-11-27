@@ -25,12 +25,11 @@ export const WishlistPage: React.FC<Props> = ({ user }) => {
     <>
       <PageTitle
         title="Lista de deseos 🎁"
-        subtitle="Elegí qué te gustaría regalar (solo o con más gente)."
+        subtitle="!Si no se te ocurre que regalar (solo o con más gente), acá hay una lista de ideas¡."
       />
       <p className="text-xs text-gray-400 mb-4">
-        Podés tocar un ítem para marcarlo como tu regalo. Si cambiás de idea,
-        tocás de nuevo y se libera. Si ya lo tomó otra persona, sólo un admin
-        puede cambiarlo.
+        Podés tocar un regalo para reservarlo. Si cambiás de idea,
+        tocás de nuevo y se libera. Si ya lo tomó otra persona, !llegaste tarde¡.
       </p>
       <WishlistGrid items={items} user={user} onToggle={handleToggle} />
     </>
