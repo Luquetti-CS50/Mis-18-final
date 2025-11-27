@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0"
+    />
+    <title>Mis 18 - Invitados</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              neon: {
+                blue: "#00C6FF",
+                dark: "#050505",
+                card: "#0A0A0A",
+                cyan: "#00E5FF"
+              }
+            },
+            fontFamily: {
+              sans: ["Outfit", "system-ui", "sans-serif"]
+            }
+          }
+        }
+      };
+    </script>
+
+    <!-- Este importmap lo podés dejar o remover; Vite usa node_modules igualmente -->
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://aistudiocdn.com/react@19.0.0",
+          "react-dom": "https://aistudiocdn.com/react-dom@19.0.0",
+          "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+          "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.9.6",
+          "recharts": "https://aistudiocdn.com/recharts@^3.4.1"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- ENTRADA ACTUALIZADA -->
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
