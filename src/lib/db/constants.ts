@@ -1,0 +1,23 @@
+// src/lib/db/constants.ts
+export const VALID_GENRES = [
+  "cumbia",
+  "rkt",
+  "reggaeton",
+  "trap",
+  "rock",
+  "pop",
+  "electronica",
+  "techno",
+  "house",
+  "cuarteto",
+  "salsa",
+  "bachata",
+  "hip hop",
+  "rap",
+  "indie",
+  "metal",
+  "jazz",
+  "clasica",
+  "disco",
+  "funk",
+];
