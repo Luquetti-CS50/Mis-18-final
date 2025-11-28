@@ -8,15 +8,27 @@ interface Props {
 }
 
 export const AdminStatsCards: React.FC<Props> = ({ users }) => {
-  const confirmed = users.filter((u) => u.hasLoggedIn).length;
-  const music = users.filter((u) => u.musicComment).length;
-  const tables = users.filter((u) => u.tableId).length;
   const total = users.length;
 
+  const confirmed = users.filter((u) => u.tableId).length; // confirmados = tienen mesa
+  const visited = users.filter((u) => u.hasLoggedIn).length;
+  const music = users.filter((u) => u.musicComment).length;
+
   const stats = [
-    { label: "Confirmados", value: confirmed, detail: `${confirmed}/${total}` },
-    { label: "Con comentario musical", value: music },
-    { label: "Con mesa elegida", value: tables },
+    {
+      label: "Invitados confirmados (tienen mesa)",
+      value: confirmed,
+      detail: `${confirmed}/${total}`,
+    },
+    {
+      label: "Ingresaron a la página",
+      value: visited,
+      detail: `${visited}/${total}`,
+    },
+    {
+      label: "Con comentario musical",
+      value: music,
+    },
   ];
 
   return (
