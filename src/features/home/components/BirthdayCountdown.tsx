@@ -2,7 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { calculateTimeLeft, TimeLeft } from "../../../lib/utils/date";
 
-const TARGET_DATE = new Date("2025-12-27T00:00:00");
+// 26/12/2025 a las 21:00 hs (hora local del navegador)
+const TARGET_DATE = new Date("2025-12-26T21:00:00");
 
 export const BirthdayCountdown: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<TimeLeft>(() =>
@@ -10,22 +11,14 @@ export const BirthdayCountdown: React.FC = () => {
   );
 
   useEffect(() => {
-    const update = () => setTimeLeft(calculateTimeLeft(TARGET_DATE));
+    const intervalId = window.setInterval(() => {
+      setTimeLeft(calculateTimeLeft(TARGET_DATE));
+    }, 1000);
 
-    const intervalMs =
-      timeLeft.total <= 24 * 60 * 60 * 1000 ? 1000 : 60 * 1000;
-
-    const id = setInterval(update, intervalMs);
-    return () => clearInterval(id);
-  }, [timeLeft.total]);
-
-  if (timeLeft.total <= 0) {
-    return (
-      <div className="mt-2 text-sm text-emerald-300">
-        ¡Ya es el día! 🎉
-      </div>
-    );
-  }
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
 
   const pad = (n: number) => n.toString().padStart(2, "0");
 
