@@ -4,7 +4,6 @@ import type { User } from "../../../types";
 import { useData } from "../../../lib/hooks/useData";
 import { db } from "../../../lib/db";
 import { PageTitle } from "../../../components/ui/PageTitle";
-import { NeonCard } from "../../../components/ui/NeonCard";
 import { BirthdayCountdown } from "../components/BirthdayCountdown";
 import { PendingTasks } from "../components/PendingTasks";
 import { ConfirmedGuestsList } from "../components/ConfirmedGuestsList";
@@ -27,10 +26,13 @@ export const HomePage: React.FC<Props> = ({ user }) => {
     () => preferences.filter((p) => p.userId === user.id),
     [preferences, user.id]
   );
+
   const mySongs = useMemo(
     () => songs.filter((s) => s.suggestedByUserId === user.id),
     [songs, user.id]
   );
+
+  // Invitados que YA ENTRARON a la página (no "confirmados" de mesa)
   const confirmedUsers = useMemo(
     () => allUsers.filter((u) => u.hasLoggedIn),
     [allUsers]
@@ -96,18 +98,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
       <BirthdayCountdown />
 
       <div className="mt-6 space-y-4">
-        <NeonCard className="cursor-default">
-          <p className="text-sm text-gray-200 mb-2">
-            Invitados confirmados:
-          </p>
-          <p className="text-3xl font-bold text-cyan-400">
-            {confirmedUsers.length}
-            <span className="text-sm text-gray-400 ml-2">
-              / {allUsers.length}
-            </span>
-          </p>
-        </NeonCard>
-
+        {/* YA NO mostramos la card de "Invitados confirmados" en Home */}
         <PendingTasks tasks={pendingTasks} />
         <MusicSummaryChart preferences={preferences} />
         <ConfirmedGuestsList users={confirmedUsers} />
