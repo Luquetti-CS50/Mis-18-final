@@ -1,108 +1,101 @@
 // src/features/auth/components/LoginForm.tsx
-import React, { useState, useMemo, ChangeEvent, FormEvent } from "react";
-import { NeonCard } from "../../../components/ui/NeonCard";
-import { NeonButton } from "../../../components/ui/NeonButton";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../app/hooks/useAuth";
 import { useData } from "../../../lib/hooks/useData";
 import { db } from "../../../lib/db";
-import { normalizeName } from "../../../lib/db/normalize";
 import type { User } from "../../../types";
 
-interface LoginFormProps {
-  onLoginSuccess: (user: User) => void;
-}
-
-export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess }) => {
-  const [name, setName] = useState("");
-  const [error, setError] = useState("");
+export const LoginForm: React.FC = () => {
+  const navigate = useNavigate();
+  const { loginWithUser } = useAuth();
   const users = useData(() => db.getUsers(), "users");
+  const inputRef = useRef<HTMLInputElement>(null);
 
+  const [name, setName] = useState("");
+  const [showList, setShowList] = useState(false);
+
+  // Filtro con highlight visual NEÓN
   const suggestions = useMemo(() => {
-    if (!name.trim()) return [];
-    const norm = normalizeName(name);
+    if (!name) return [];
     return users
-      .filter((u) => normalizeName(u.name).includes(norm))
-      .map((u) => u.name)
-      .slice(0, 5);
+      .filter((u) => u.name.toLowerCase().includes(name.toLowerCase()))
+      .slice(0, 6);
   }, [name, users]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setName(e.target.value);
-    setError("");
+  // CLICK EN UN NOMBRE → se rellena y se cierra el dropdown
+  const selectSuggestion = (u: User) => {
+    setName(u.name);
+    setShowList(false);
+    inputRef.current?.blur();
   };
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const user = db.login(name);
-    if (!user) {
-      setError("Ups, no te encuentro en la lista de invitados 🧐");
-      return;
-    }
-    onLoginSuccess(user);
+  const handleSubmit = () => {
+    const user = users.find(
+      (u) => u.name.toLowerCase() === name.toLowerCase().trim()
+    );
+
+    if (!user) return alert("No encontré ese nombre en la lista 😅");
+
+    loginWithUser(user);
+    navigate("/home");
   };
 
-  const handleSuggestionClick = (value: string) => {
-    setName(value);
-    setError("");
-  };
+  // Cerrar lista si se hace click afuera
+  useEffect(() => {
+    const clickOut = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest("#login-autocomplete"))
+        setShowList(false);
+    };
+    window.addEventListener("click", clickOut);
+    return () => window.removeEventListener("click", clickOut);
+  }, []);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-black relative overflow-hidden">
-      <div className="absolute top-[-20%] left-[-20%] w-[500px] h-[500px] bg-cyan-500 opacity-10 rounded-full blur-[100px]" />
-      <div className="absolute bottom-[-20%] right-[-20%] w-[500px] h-[500px] bg-purple-500 opacity-10 rounded-full blur-[100px]" />
+    <div id="login-autocomplete" className="relative">
+      <input
+        ref={inputRef}
+        value={name}
+        onChange={(e) => {
+          setName(e.target.value);
+          setShowList(true);
+        }}
+        className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-cyan-400 transition"
+        placeholder="Tu nombre..."
+        autoComplete="name"          // ← evita autofill de tarjetas/contraseñas
+        name="username"
+      />
 
-      <div className="w-full max-w-md z-10">
-        <div className="text-center mb-10">
-          <h1 className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white to-gray-400 mb-2">
-            MIS 18
-          </h1>
-          <div className="h-1 w-24 bg-cyan-400 mx-auto rounded-full shadow-[0_0_16px_rgba(34,211,238,0.9)]" />
+      {/* AUTOCOMPLETADO */}
+      {showList && suggestions.length > 0 && (
+        <div className="absolute left-0 top-full w-full mt-1 bg-black/80 border border-white/10 rounded-lg shadow-xl overflow-hidden animate-fadeIn z-20">
+          {suggestions.map((u) => {
+            const i = u.name.toLowerCase().indexOf(name.toLowerCase());
+            const before = u.name.slice(0, i);
+            const match = u.name.slice(i, i + name.length);
+            const after = u.name.slice(i + name.length);
+
+            return (
+              <button
+                key={u.id}
+                onClick={() => selectSuggestion(u)}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-cyan-500/10 transition flex"
+              >
+                <span className="text-gray-200">{before}</span>
+                <span className="text-cyan-300 font-semibold">{match}</span>
+                <span className="text-gray-200">{after}</span>
+              </button>
+            );
+          })}
         </div>
+      )}
 
-        <NeonCard className="p-6 cursor-default">
-          <h2 className="text-xl font-semibold text-white mb-1">
-            ¡Bienvenid@!
-          </h2>
-          <p className="text-sm text-cyan-100/80 mb-6">
-            Escribí tu nombre para entrar a la fiesta.
-          </p>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <input
-                type="text"
-                value={name}
-                onChange={handleChange}
-                placeholder="Tu nombre completo..."
-                className="w-full bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-cyan-400"
-              />
-              {suggestions.length > 0 && (
-                <div className="absolute left-0 right-0 mt-1 bg-black border border-gray-700 rounded-lg shadow-lg text-sm max-h-40 overflow-auto z-20">
-                  {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => handleSuggestionClick(s)}
-                      className="w-full text-left px-3 py-2 hover:bg-cyan-500/10 text-gray-200"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/40 rounded-lg px-3 py-2">
-                {error}
-              </p>
-            )}
-
-            <NeonButton type="submit" fullWidth>
-              Entrar a la fiesta 🎉
-            </NeonButton>
-          </form>
-        </NeonCard>
-      </div>
+      <button
+        onClick={handleSubmit}
+        className="mt-3 w-full bg-cyan-500/20 hover:bg-cyan-400/30 border border-cyan-400/50 text-cyan-200 font-semibold rounded-lg py-2 transition"
+      >
+        Entrar a la fiesta 🎉
+      </button>
     </div>
   );
 };
