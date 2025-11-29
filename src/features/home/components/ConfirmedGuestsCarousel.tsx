@@ -9,8 +9,14 @@ interface Props {
 export const ConfirmedGuestsCarousel: React.FC<Props> = ({ users }) => {
   if (users.length === 0) return null;
 
-  // Duplicamos para loop suave
-  const doubled = [...users, ...users];
+  const chips = users.map((u) => (
+    <div
+      key={u.id}
+      className="px-4 py-1.5 text-sm rounded-full bg-cyan-900/40 border border-cyan-500/30 shadow-[0_0_8px_rgba(0,255,255,0.25)] text-white flex items-center"
+    >
+      {u.name}
+    </div>
+  ));
 
   return (
     <div className="relative overflow-hidden h-12 mt-2 border-y border-white/10 flex items-center">
@@ -18,25 +24,17 @@ export const ConfirmedGuestsCarousel: React.FC<Props> = ({ users }) => {
       <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-black to-transparent" />
       <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-black to-transparent" />
 
-      {/* Cinta infinita */}
+      {/* Wrapper con dos tracks idénticos para loop perfecto */}
       <div
         className="flex gap-3 whitespace-nowrap animate-carousel"
-        style={{
-          animationDuration: "20s", // velocidad B
-          minWidth: "200%",         // evita huecos al final
-        }}
+        style={{ animationDuration: "20s", minWidth: "200%" }}
       >
-        {doubled.map((u, i) => (
-          <div
-            key={`${u.id}-${i}`}
-            className="px-4 py-1.5 text-sm rounded-full bg-cyan-900/40 border border-cyan-500/30 shadow-[0_0_8px_rgba(0,255,255,0.25)] text-white flex items-center"
-          >
-            {u.name}
-          </div>
-        ))}
+        <div className="flex gap-3">{chips}</div>
+        <div className="flex gap-3" aria-hidden="true">
+          {chips}
+        </div>
       </div>
 
-      {/* Animación CSS */}
       <style>
         {`
         @keyframes carousel {
