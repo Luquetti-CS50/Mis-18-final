@@ -2,23 +2,34 @@
 import React, { useState } from "react";
 import { NeonCard } from "../../../components/ui/NeonCard";
 import { NeonButton } from "../../../components/ui/NeonButton";
-import { PlayCircle, ExternalLink } from "lucide-react";
+import { PlayCircle, ExternalLink, AlertCircle } from "lucide-react";
 import type { Song, User } from "../../../types";
 import { db } from "../../../lib/db";
 
 interface Props {
   user: User;
   mySongs: Song[];
+  allSongs: Song[];
 }
 
-export const SongSearch: React.FC<Props> = ({ user, mySongs }) => {
+const normalizeKey = (title: string, artist: string) =>
+  `${title}||${artist}`
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ");
+
+export const SongSearch: React.FC<Props> = ({ user, mySongs, allSongs }) => {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Song[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [warning, setWarning] = useState<string | null>(null);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
     setIsSearching(true);
+    setWarning(null);
     try {
       const res = await db.searchSongs(query);
       setResults(res);
@@ -28,6 +39,27 @@ export const SongSearch: React.FC<Props> = ({ user, mySongs }) => {
   };
 
   const handleSelectSong = (song: Song) => {
+    setWarning(null);
+    const key = normalizeKey(song.title, song.artist);
+
+    const myExisting = mySongs.find(
+      (s) => normalizeKey(s.title, s.artist) === key
+    );
+    if (myExisting) {
+      setWarning("Ya sugeriste esta canción.");
+      return;
+    }
+
+    const otherExisting = allSongs.find(
+      (s) =>
+        normalizeKey(s.title, s.artist) === key &&
+        s.suggestedByUserId !== user.id
+    );
+    if (otherExisting) {
+      setWarning("Alguien ya sugirió esta canción.");
+      return;
+    }
+
     db.addSong({ ...song, suggestedByUserId: user.id });
     setQuery("");
     setResults([]);
@@ -38,22 +70,30 @@ export const SongSearch: React.FC<Props> = ({ user, mySongs }) => {
       <h3 className="text-sm font-semibold text-white mb-2">
         Buscar canciones
       </h3>
-      <p className="text-xs text-gray-400 mb-3">
-        Buscá temas para sugerirlos. Es una búsqueda mockeada, pero respeta la
-        idea de la app real.
+      <p className="text-xs text-gray-400 mb-2">
+        Buscá temas para la playlist. Más adelante esta sección se va a conectar
+        con YouTube para traer nombre, artista, imagen y link automáticamente.
       </p>
-
-      <div className="flex gap-2 mb-3">
+      <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 bg-[#111] border border-[#333] rounded-lg px-3 py-2 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-cyan-400"
-          placeholder="Ej: Duki, Bad Bunny, Coldplay..."
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setWarning(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              handleSearch();
+            }
+          }}
+          className="flex-1 bg-[#111] border border-[#333] rounded-md px-3 py-2 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-cyan-400"
+          placeholder="Ej: artista o nombre de la canción"
         />
         <NeonButton
           type="button"
-          variant="secondary"
+          variant="primary"
           onClick={handleSearch}
           disabled={isSearching}
         >
@@ -61,66 +101,65 @@ export const SongSearch: React.FC<Props> = ({ user, mySongs }) => {
           {isSearching ? "Buscando..." : "Buscar"}
         </NeonButton>
       </div>
-
-      {results.length > 0 && (
-        <div className="mb-4 space-y-2 max-h-48 overflow-auto">
-          {results.map((song) => (
-            <div
-              key={song.id}
-              className="flex items-center gap-3 p-2 rounded-lg bg-black/40 border border-gray-800 hover:border-cyan-500/60 cursor-pointer"
-              onClick={() => handleSelectSong(song)}
-            >
-              <img
-                src={song.thumbnailUrl}
-                alt={song.title}
-                className="w-10 h-10 rounded object-cover"
-              />
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-white">
-                  {song.title}
-                </p>
-                <p className="text-[11px] text-gray-400">
-                  {song.artist} • {song.platform.toUpperCase()}
-                </p>
-              </div>
-            </div>
-          ))}
+      {warning && (
+        <div className="mt-2 flex items-center text-[11px] text-amber-300">
+          <AlertCircle size={12} className="mr-1" />
+          {warning}
         </div>
       )}
-
-      <div className="border-t border-gray-800 pt-3 mt-3">
-        <h4 className="text-xs font-semibold text-white mb-2">
-          Tus canciones sugeridas
-        </h4>
-        {mySongs.length === 0 ? (
-          <p className="text-xs text-gray-500">
-            Todavía no agregaste canciones.
+      {results.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs text-gray-400 mb-1">
+            Resultados (mock de búsqueda, listo para conectar a YouTube):
           </p>
-        ) : (
-          <div className="space-y-2 max-h-40 overflow-auto text-xs">
-            {mySongs.map((song) => (
+          <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+            {results.map((song) => (
               <div
                 key={song.id}
-                className="flex items-center gap-2 py-1 border-b border-gray-800 last:border-b-0"
+                className="flex items-center gap-3 border border-white/5 rounded-md px-2 py-1.5 bg-black/40"
               >
-                <span className="font-medium text-white">{song.title}</span>
-                <span className="text-gray-400">– {song.artist}</span>
-                {song.platformUrl && (
-                  <a
-                    href={song.platformUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="ml-auto text-cyan-300 hover:text-white flex items-center gap-1"
-                  >
-                    <ExternalLink size={12} />
-                    Abrir
-                  </a>
+                {song.thumbnailUrl && (
+                  <img
+                    src={song.thumbnailUrl}
+                    alt={song.title}
+                    className="w-10 h-10 rounded object-cover"
+                  />
                 )}
+                <div className="flex-1">
+                  <div className="text-xs font-semibold text-white">
+                    {song.title}
+                  </div>
+                  <div className="text-[11px] text-gray-400">
+                    {song.artist} ·{" "}
+                    {song.platform === "youtube" ? "YouTube" : "Spotify"}
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  {song.platformUrl && (
+                    <a
+                      href={song.platformUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-cyan-300 hover:text-white flex items-center gap-1"
+                    >
+                      <ExternalLink size={12} />
+                      Abrir
+                    </a>
+                  )}
+                  <NeonButton
+                    type="button"
+                    variant="secondary"
+                    className="text-[11px] px-2 py-1"
+                    onClick={() => handleSelectSong(song)}
+                  >
+                    Sumar a la lista
+                  </NeonButton>
+                </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </NeonCard>
   );
 };
