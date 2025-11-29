@@ -6,102 +6,51 @@ import { db } from "../../../lib/db";
 import { PageTitle } from "../../../components/ui/PageTitle";
 import { BirthdayCountdown } from "../components/BirthdayCountdown";
 import { PendingTasks } from "../components/PendingTasks";
-import { ConfirmedGuestsList } from "../components/ConfirmedGuestsList";
 import { MusicSummaryChart } from "../components/MusicSummaryChart";
+import { ConfirmedGuestsCarousel } from "../components/ConfirmedGuestsCarousel";
+import { EventLocation } from "../components/EventLocation";
 import { useNavigate } from "react-router-dom";
 import { Shield } from "lucide-react";
 
-interface Props {
-  user: User;
-}
+interface Props { user: User; }
 
 export const HomePage: React.FC<Props> = ({ user }) => {
   const navigate = useNavigate();
-
   const allUsers = useData(() => db.getUsers(), "users");
   const preferences = useData(() => db.getPreferences(), "prefs");
   const songs = useData(() => db.getSongs(), "songs");
 
-  const myPrefs = useMemo(
-    () => preferences.filter((p) => p.userId === user.id),
-    [preferences, user.id]
-  );
+  const myPrefs = useMemo(() => preferences.filter(p => p.userId === user.id), [preferences]);
+  const mySongs = useMemo(() => songs.filter(s => s.suggestedByUserId === user.id), [songs]);
 
-  const mySongs = useMemo(
-    () => songs.filter((s) => s.suggestedByUserId === user.id),
-    [songs, user.id]
-  );
-
-  // Invitados que YA ENTRARON a la página (no "confirmados" de mesa)
-  const confirmedUsers = useMemo(
-    () => allUsers.filter((u) => u.hasLoggedIn),
-    [allUsers]
-  );
+  const confirmedUsers = useMemo(() => allUsers.filter(u => u.hasLoggedIn), [allUsers]);
 
   const pendingTasks = useMemo(() => {
-    const tasks: {
-      type: "music" | "table";
-      title: string;
-      description: string;
-      link: string;
-    }[] = [];
-
-    if (!user.musicComment && myPrefs.length === 0 && mySongs.length === 0) {
-      tasks.push({
-        type: "music",
-        title: "Contanos qué música te gusta",
-        description: "Así armamos la playlist con tus gustos.",
-        link: "/music",
-      });
-    }
-
-    if (!user.tableId) {
-      tasks.push({
-        type: "table",
-        title: "Elegí tu mesa",
-        description:
-          "Ubicate con tu grupo para que no haya quilombo el mismo día.",
-        link: "/tables",
-      });
-    }
-
-    return tasks;
-  }, [user.musicComment, user.tableId, myPrefs.length, mySongs.length]);
-
-  const handleOpenAdmin = () => {
-    // mismo concepto que antes: admin con token
-    navigate("/admin?token=secret123");
-  };
-
-  const showAdminShield = user.isAdmin === true;
+    const arr = [];
+    if (!user.tableId) arr.push({ title:"Elegí tu mesa", link:"/tables" });
+    if (!user.musicComment && !myPrefs.length && !mySongs.length)
+      arr.push({ title:"Contanos qué música te gusta", link:"/music" });
+    return arr;
+  }, [user, myPrefs.length, mySongs.length]);
 
   return (
     <>
-      <div className="flex items-start justify-between gap-3">
-        <PageTitle
-          title={`Hola, ${user.name.split(" ")[0]} 👋`}
-          subtitle="Te doy la bienvenida al panel de la fiesta."
-        />
-
-        {showAdminShield && (
-          <button
-            type="button"
-            onClick={handleOpenAdmin}
-            className="mt-1 inline-flex items-center justify-center p-2 rounded-full bg-white/5 border border-cyan-400/60 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-100 hover:shadow-[0_0_12px_rgba(34,211,238,0.8)] transition-all"
-            title="Abrir panel de administración"
-          >
-            <Shield size={18} />
+      <div className="flex justify-between items-start">
+        <PageTitle title={`Hola, ${user.name.split(" ")[0]} 👋`} subtitle="Bienvenido al panel." />
+        {user.isAdmin && (
+          <button onClick={() => navigate("/admin?token=secret123")}
+            className="p-2 rounded-full bg-white/5 border border-cyan-300 text-cyan-200 hover:scale-105 transition">
+            <Shield size={18}/>
           </button>
         )}
       </div>
 
       <BirthdayCountdown />
-
-      <div className="mt-6 space-y-4">
-        {/* YA NO mostramos la card de "Invitados confirmados" en Home */}
+      <ConfirmedGuestsCarousel users={confirmedUsers} />
+      <div className="space-y-4 mt-4">
         <PendingTasks tasks={pendingTasks} />
         <MusicSummaryChart preferences={preferences} />
-        <ConfirmedGuestsList users={confirmedUsers} />
+        <EventLocation />
       </div>
     </>
   );
