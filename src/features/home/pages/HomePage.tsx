@@ -1,6 +1,6 @@
 // src/features/home/pages/HomePage.tsx
 import React, { useMemo, useState } from "react";
-import type { User } from "../../../types";
+import type { User, Table } from "../../../types";
 import { useData } from "../../../lib/hooks/useData";
 import { db } from "../../../lib/db";
 import { PageTitle } from "../../../components/ui/PageTitle";
@@ -22,6 +22,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
   const allUsers = useData(() => db.getUsers(), "users");
   const preferences = useData(() => db.getPreferences(), "prefs");
   const songs = useData(() => db.getSongs(), "songs");
+  const tables = useData(() => db.getTables(), "tables");
 
   const myPrefs = useMemo(
     () => preferences.filter((p) => p.userId === user.id),
@@ -33,11 +34,24 @@ export const HomePage: React.FC<Props> = ({ user }) => {
     [songs, user.id]
   );
 
-  // Confirmados = usuarios que YA TIENEN MESA
-  const confirmedUsers = useMemo(
-    () => allUsers.filter((u) => u.tableId),
-    [allUsers]
-  );
+  // Mapa idMesa -> Mesa
+  const tableMap = useMemo(() => {
+    const map: Record<string, Table> = {};
+    tables.forEach((t) => {
+      map[t.id] = t;
+    });
+    return map;
+  }, [tables]);
+
+  // Confirmados = usuarios que YA TIENEN MESA, ordenados alfabéticamente
+  const confirmedUsers = useMemo(() => {
+    return allUsers
+      .filter((u) => u.tableId)
+      .slice()
+      .sort((a, b) =>
+        a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+      );
+  }, [allUsers]);
 
   const [showAllConfirmed, setShowAllConfirmed] = useState(false);
 
@@ -122,19 +136,26 @@ export const HomePage: React.FC<Props> = ({ user }) => {
 
         {showAllConfirmed && confirmedUsers.length > 0 && (
           <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-gray-100 space-y-1">
-            {confirmedUsers.map((u) => (
-              <div
-                key={u.id}
-                className="flex items-center justify-between gap-2 border-b border-white/5 last:border-b-0 pb-1 last:pb-0"
-              >
-              <span>{u.name}</span>
-                {u.tableId && (
-                  <span className="text-[10px] text-cyan-300">
-                    Mesa: {u.tableId}
-                  </span>
-                )}
-              </div>
-            ))}
+            {confirmedUsers.map((u) => {
+              const table = u.tableId ? tableMap[u.tableId] : undefined;
+              const mesaLabel =
+                table?.name ??
+                (u.tableId ? `Mesa ${u.tableId.replace(/^t/i, "")}` : "–");
+
+              return (
+                <div
+                  key={u.id}
+                  className="flex items-center justify-between gap-2 border-b border-white/5 last:border-b-0 pb-1 last:pb-0"
+                >
+                  <span>{u.name}</span>
+                  {u.tableId && (
+                    <span className="text-[10px] text-cyan-300">
+                      {mesaLabel}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
