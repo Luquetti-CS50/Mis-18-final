@@ -14,19 +14,25 @@ export const TablesPage: React.FC<Props> = ({ user }) => {
   const tables = useData(() => db.getTables(), "tables");
   const users = useData(() => db.getUsers(), "users");
 
-  const tableData = useMemo(
-    () =>
-      tables.map((table) => {
-        const occupants = users.filter((u) => u.tableId === table.id);
-        const isMyTable = user.tableId === table.id;
-        return { table, occupants, isMyTable };
-      }),
-    [tables, users, user.tableId]
-  );
+  const tableData = useMemo(() => {
+    return tables.map((table) => {
+      const occupants = users.filter((u) => u.tableId === table.id);
+      const isMyTable = user.tableId === table.id;
+
+      return {
+        table,
+        occupants,
+        isMyTable,
+      };
+    });
+  }, [tables, users, user.tableId]);
 
   const handleJoin = (tableId: string) => {
+    // Actualizamos solo la mesa del usuario actual
     db.updateUser({ ...user, tableId });
   };
+
+  const hasChosenTable = !!user.tableId;
 
   return (
     <>
@@ -35,10 +41,14 @@ export const TablesPage: React.FC<Props> = ({ user }) => {
         subtitle="Elegí dónde te querés sentar."
       />
       <p className="text-xs text-gray-400 mb-4">
-        La idea es que cada mesa tenga unas 10 personas. Podés cambiar de
-        mesa si te equivocaste.
+        La idea es que cada mesa tenga unas 10 personas. Podés cambiar de mesa
+        si te equivocaste.
       </p>
-      <TablesGrid data={tableData} onJoin={handleJoin} />
+      <TablesGrid
+        data={tableData}
+        hasChosenTable={hasChosenTable}
+        onJoin={handleJoin}
+      />
     </>
   );
 };
