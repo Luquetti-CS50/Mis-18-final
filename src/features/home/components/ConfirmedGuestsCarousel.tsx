@@ -7,55 +7,84 @@ interface Props {
 }
 
 export const ConfirmedGuestsCarousel: React.FC<Props> = ({ users }) => {
-  if (users.length === 0) return null;
+  const [visibleUsers, setVisibleUsers] = React.useState<User[]>([]);
+  const [fadeKey, setFadeKey] = React.useState(0);
 
-  // Orden aleatorio SOLO para el carrusel (no afecta la lista completa)
-  const shuffled = React.useMemo(() => {
-    const copy = [...users];
-    for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copy[i], copy[j]] = [copy[j], copy[i]];
+  // función para elegir hasta 8 usuarios al azar
+  const pickRandomUsers = React.useCallback(
+    (source: User[]) => {
+      if (!source || source.length === 0) {
+        setVisibleUsers([]);
+        return;
+      }
+
+      if (source.length <= 8) {
+        setVisibleUsers(source);
+        setFadeKey((k) => k + 1);
+        return;
+      }
+
+      const copy = [...source];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      setVisibleUsers(copy.slice(0, 8));
+      setFadeKey((k) => k + 1);
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (!users || users.length === 0) {
+      setVisibleUsers([]);
+      return;
     }
-    return copy;
-  }, [users]);
 
-  const chips = shuffled.map((u) => (
-    <div
-      key={u.id}
-      className="px-4 py-1.5 text-sm rounded-full bg-cyan-900/40 border border-cyan-500/30 shadow-[0_0_8px_rgba(0,255,255,0.25)] text-white flex items-center"
-    >
-      {u.name}
-    </div>
-  ));
+    // primera selección
+    pickRandomUsers(users);
+
+    // refresco cada 20 segundos
+    const id = window.setInterval(() => {
+      pickRandomUsers(users);
+    }, 20000);
+
+    return () => window.clearInterval(id);
+  }, [users, pickRandomUsers]);
+
+  if (visibleUsers.length === 0) return null;
 
   return (
-    <div className="relative overflow-hidden h-12 mt-2 border-y border-white/10 flex items-center pl-10">
-      {/* Fades laterales */}
-      <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-black to-transparent" />
-      <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-black to-transparent" />
-
-      {/* Wrapper con dos tracks idénticos para loop continuo */}
-      <div
-        className="flex animate-carousel"
-        style={{ animationDuration: "20s", width: "200%" }}
-      >
-        <div className="flex gap-3 w-1/2">{chips}</div>
-        <div className="flex gap-3 w-1/2" aria-hidden="true">
-          {chips}
+    <>
+      <div key={fadeKey} className="mt-3 animate-fade-users">
+        <div className="flex flex-wrap gap-2">
+          {visibleUsers.map((u) => (
+            <div
+              key={u.id}
+              className="px-4 py-1.5 text-sm rounded-full bg-cyan-900/40 border border-cyan-500/30 shadow-[0_0_8px_rgba(0,255,255,0.25)] text-white"
+            >
+              {u.name}
+            </div>
+          ))}
         </div>
+        <p className="mt-1 text-[11px] text-gray-400">
+          Mostrando hasta 8 invitados confirmados al azar. Tocá{" "}
+          <span className="text-cyan-300 font-semibold">“Ver lista completa”</span> para ver
+          todos.
+        </p>
       </div>
 
       <style>
         {`
-        @keyframes carousel {
-          from { transform: translateX(0); }
-          to { transform: translateX(-100%); }
+        @keyframes fadeUsers {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
-        .animate-carousel {
-          animation: carousel linear infinite;
+        .animate-fade-users {
+          animation: fadeUsers 0.5s ease-in-out;
         }
       `}
       </style>
-    </div>
+    </>
   );
 };
