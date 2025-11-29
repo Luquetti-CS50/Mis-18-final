@@ -14,54 +14,77 @@ export const WishlistItemCard: React.FC<Props> = ({
   user,
   onToggle,
 }) => {
-  const isMine = item.takenByUserId === user.id;
-  const isTakenByOther = item.isTaken && !isMine;
+  const isTaken = item.isTaken;
+  const isMine = isTaken && item.takenByUserId === user.id;
+
+  const helperText = (() => {
+    if (isMine) {
+      return "Reservaste este regalo (tocá de nuevo para liberar).";
+    }
+    if (isTaken) {
+      return "Ya lo reservó otra persona.";
+    }
+    return "Tocar para reservar este regalo.";
+  })();
 
   return (
     <NeonCard
-      className={`cursor-pointer ${
-        isTakenByOther ? "opacity-60 grayscale" : ""
-      }`}
       onClick={onToggle}
+      className="cursor-pointer hover:scale-[1.01] transition-transform"
     >
-      <div className="flex gap-3">
-        <img
-          src={item.imageUrl}
-          alt={item.name}
-          className="w-16 h-16 rounded object-cover"
-        />
-        <div className="flex-1">
-          <h3 className="text-sm font-semibold text-white mb-1">
-            {item.name}
-          </h3>
-          {item.linkUrl && (
-            <a
-              href={item.linkUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-cyan-300 hover:text-white"
-              onClick={(e) => e.stopPropagation()}
-            >
-              Ver detalle
-            </a>
+      <div className="flex gap-3 items-center">
+        {/* Imagen del producto (lista para usar cuando agreguemos imágenes reales) */}
+        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gradient-to-br from-cyan-500/20 via-cyan-900/40 to-black flex items-center justify-center text-xs text-cyan-200/70">
+          {item.imageUrl ? (
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <span>Imagen</span>
           )}
-          <p className="text-xs mt-2">
-            {item.isTaken ? (
-              isMine ? (
-                <span className="text-emerald-300">
-                  Lo marcaste como tu regalo 💚 (tocá de nuevo para liberar)
-                </span>
-              ) : (
-                <span className="text-gray-400">
-                  Ya lo está regalando otra persona.
-                </span>
-              )
+        </div>
+
+        {/* Info principal */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <p className="text-sm font-semibold text-cyan-100 truncate">
+              {item.name}
+            </p>
+
+            {/* Estado visual */}
+            {isMine ? (
+              <span className="text-[11px] px-2 py-[2px] rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/40">
+                Tu reserva
+              </span>
+            ) : isTaken ? (
+              <span className="text-[11px] px-2 py-[2px] rounded-full bg-red-500/10 text-red-300 border border-red-500/40">
+                Reservado
+              </span>
             ) : (
-              <span className="text-cyan-200">
-                Tocar para comprometerte con este regalo.
+              <span className="text-[11px] px-2 py-[2px] rounded-full bg-cyan-500/10 text-cyan-200 border border-cyan-500/40">
+                Disponible
               </span>
             )}
-          </p>
+          </div>
+
+          {/* Link a MercadoLibre (preparado para futuro) */}
+          {item.linkUrl && (
+            <p className="text-[11px] text-cyan-300 mb-1 truncate">
+              <a
+                href={item.linkUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="underline decoration-dotted underline-offset-2 hover:text-cyan-100"
+              >
+                Ver en MercadoLibre
+              </a>
+            </p>
+          )}
+
+          {/* Texto de ayuda */}
+          <p className="text-[11px] text-gray-300">{helperText}</p>
         </div>
       </div>
     </NeonCard>
