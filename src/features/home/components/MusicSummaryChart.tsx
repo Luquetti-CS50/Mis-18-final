@@ -1,48 +1,34 @@
 // src/features/home/components/MusicSummaryChart.tsx
-import React, { useMemo } from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import type { MusicPreference, MusicGenreCount } from "../../../types";
-import { NeonCard } from "../../../components/ui/NeonCard";
+import React from "react";
+import type { MusicPreference } from "../../../types";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface Props {
   preferences: MusicPreference[];
 }
 
 export const MusicSummaryChart: React.FC<Props> = ({ preferences }) => {
-  const chartData: MusicGenreCount[] = useMemo(() => {
-    const counter = new Map<string, number>();
-    for (const pref of preferences) {
-      counter.set(pref.genre, (counter.get(pref.genre) ?? 0) + 1);
-    }
-    return Array.from(counter.entries())
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 6);
-  }, [preferences]);
+  const counts = preferences.reduce((acc, p) => {
+    acc[p.genre] = (acc[p.genre] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
-  if (chartData.length === 0) return null;
+  const data = Object.keys(counts).map((g) => ({ genre: g, votes: counts[g] }));
 
   return (
-    <NeonCard className="mb-6 cursor-default">
-      <h3 className="text-sm font-semibold text-white mb-2">
-        Gustos musicales generales
-      </h3>
-      <div className="h-40">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={chartData}>
-            <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-            <YAxis allowDecimals={false} tick={{ fontSize: 10 }} />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#020617",
-                border: "1px solid #0f172a",
-                fontSize: 12,
-              }}
-            />
-            <Bar dataKey="value" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-    </NeonCard>
+    <div className="h-56 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} margin={{ top: 5, bottom: 10 }}>
+          <XAxis dataKey="genre" stroke="#72e3ff" tick={{ fontSize: 11 }} />
+          <YAxis stroke="#72e3ff" tick={{ fontSize: 11 }} />
+          <Tooltip contentStyle={{ background: "#000", border: "1px solid #0ff" }} />
+          <Bar dataKey="votes" radius={5}>
+            {data.map((_, i) => (
+              <Cell key={i} fill="rgba(0,255,255,0.35)" />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
   );
 };
