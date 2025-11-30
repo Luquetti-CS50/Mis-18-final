@@ -25,13 +25,18 @@ export const MusicSummaryChart: React.FC<Props> = ({ preferences }) => {
       counts[g] = (counts[g] ?? 0) + 1;
     });
 
-    return Object.entries(counts).map(([genre, value]) => ({
-      name: prettifyGenre(genre), // ← 🔥 ahora capitalizado correctamente
-      value,
-    }));
+    return Object.entries(counts)
+      .map(([genre, value]) => ({
+        name: prettifyGenre(genre),
+        value,
+      }))
+      .sort((a, b) =>
+        b.value - a.value || a.name.localeCompare(b.name, "es", { sensitivity: "base" })
+      )
+      .slice(0, 6); // 🔥 solo las 6 más votadas
   }, [preferences]);
 
-  const COLORS = ["#22d3ee", "#38bdf8", "#0ea5e9", "#0284c7", "#06b6d4"];
+  const COLORS = ["#22d3ee", "#38bdf8", "#0ea5e9", "#0284c7", "#06b6d4", "#0891b2"];
 
   return (
     <div className="mt-6 rounded-xl bg-black/50 border border-cyan-400/30 p-4 shadow-[0_0_20px_rgba(34,211,238,0.15)]">
