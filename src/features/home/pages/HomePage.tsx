@@ -24,14 +24,20 @@ export const HomePage: React.FC<Props> = ({ user }) => {
   const songs = useData(() => db.getSongs(), "songs");
   const tables = useData(() => db.getTables(), "tables");
 
+  // Refrescamos el usuario actual desde DB (por si cambió mesa/estado)
+  const currentUser = useMemo(() => {
+    const fresh = allUsers.find((u) => u.id === user.id);
+    return fresh ?? user;
+  }, [allUsers, user]);
+
   const myPrefs = useMemo(
-    () => preferences.filter((p) => p.userId === user.id),
-    [preferences, user.id]
+    () => preferences.filter((p) => p.userId === currentUser.id),
+    [preferences, currentUser.id]
   );
 
   const mySongs = useMemo(
-    () => songs.filter((s) => s.requestedByUserId === user.id),
-    [songs, user.id]
+    () => songs.filter((s) => s.requestedByUserId === currentUser.id),
+    [songs, currentUser.id]
   );
 
   const tableMap = useMemo(() => {
@@ -62,7 +68,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
       link: string;
     }[] = [];
 
-    if (!user.musicComment && myPrefs.length === 0 && mySongs.length === 0) {
+    if (!currentUser.musicComment && myPrefs.length === 0 && mySongs.length === 0) {
       tasks.push({
         type: "music",
         title: "Contanos qué música te gusta",
@@ -71,7 +77,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
       });
     }
 
-    if (!user.tableId) {
+    if (!currentUser.tableId) {
       tasks.push({
         type: "table",
         title: "Elegí tu mesa",
@@ -81,23 +87,58 @@ export const HomePage: React.FC<Props> = ({ user }) => {
     }
 
     return tasks;
-  }, [user.musicComment, user.tableId, myPrefs.length, mySongs.length]);
+  }, [currentUser.musicComment, currentUser.tableId, myPrefs.length, mySongs.length]);
 
   const handleOpenAdmin = () => {
     navigate("/admin?token=secret123");
   };
 
-  const showAdminShield = user.isAdmin === true;
+  const showAdminShield = currentUser.isAdmin === true;
 
   // 👇 Apodo random por sesión (si no hay apodos, cae al primer nombre)
   const [sessionNickname] = useState(() => {
-    const nicknames = user.nicknames && user.nicknames.length > 0
-      ? user.nicknames
-      : [user.name.split(" ")[0]];
+    const nicknames =
+      currentUser.nicknames && currentUser.nicknames.length > 0
+        ? currentUser.nicknames
+        : [currentUser.name.split(" ")[0]];
 
     const idx = Math.floor(Math.random() * nicknames.length);
     return nicknames[idx];
   });
+
+  // 👇 Info para la tarjeta “X te asignó una mesa”
+  const seatAssignmentInfo = useMemo(() => {
+    const u = currentUser;
+    if (!u.tableId || !u.seatAssignedByUserId) return null;
+    if (u.seatAssignedByUserId === u.id) return null;
+
+    const assigner = allUsers.find((x) => x.id === u.seatAssignedByUserId);
+    if (!assigner) return null;
+
+    // Opcional: si querés exigir misma familia, descomentá esto
+    if (u.familyCode && assigner.familyCode && u.familyCode !== assigner.familyCode) {
+      // Distinta familia, no mostramos nada
+      // return null;
+    }
+
+    const table = tableMap[u.tableId];
+    const mesaLabel =
+      table?.name ?? `Mesa ${u.tableId.replace(/^t/i, "")}`;
+
+    const assignerDisplay =
+      assigner.nicknames && assigner.nicknames.length > 0
+        ? assigner.nicknames[0]
+        : assigner.name.split(" ")[0];
+
+    return {
+      assignerName: assignerDisplay,
+      mesaLabel,
+    };
+  }, [currentUser, allUsers, tableMap]);
+
+  const goToTables = () => {
+    navigate("/tables");
+  };
 
   return (
     <>
@@ -120,6 +161,28 @@ export const HomePage: React.FC<Props> = ({ user }) => {
       </div>
 
       <BirthdayCountdown />
+
+      {/* Tarjeta: alguien de tu familia te asignó una mesa */}
+      {seatAssignmentInfo && (
+        <div className="mt-3 rounded-xl border border-cyan-400/40 bg-black/50 px-4 py-3 text-xs text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.25)]">
+          <p className="mb-2">
+            <span className="font-semibold text-cyan-200">
+              {seatAssignmentInfo.assignerName}
+            </span>{" "}
+            te asignó una mesa
+            {seatAssignmentInfo.mesaLabel
+              ? ` (${seatAssignmentInfo.mesaLabel})`
+              : ""}, si querés la podés cambiar.
+          </p>
+          <button
+            type="button"
+            onClick={goToTables}
+            className="inline-flex items-center justify-center rounded-lg border border-cyan-400/70 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/20 hover:shadow-[0_0_10px_rgba(34,211,238,0.5)] transition"
+          >
+            Ver mesa asignada
+          </button>
+        </div>
+      )}
 
       {/* Sección de invitados confirmados */}
       <div className="mt-3">
