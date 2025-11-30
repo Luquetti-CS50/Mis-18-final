@@ -5,6 +5,7 @@ import { PageTitle } from "../../../components/ui/PageTitle";
 import { useData } from "../../../lib/hooks/useData";
 import { db } from "../../../lib/db";
 import { WishlistGrid } from "../components/WishlistGrid";
+import { TransferAliasCard } from "../components/TransferAliasCard";
 
 interface Props {
   user: User;
@@ -32,6 +33,12 @@ export const WishlistPage: React.FC<Props> = ({ user }) => {
         Tocá un regalo para reservarlo. Si cambiás de idea, tocás de nuevo y se
         libera. Si ya lo reservó otra persona, ¡llegaste tarde!
       </p>
+
+      {/* Tarjeta especial de transferencia, arriba de todos los regalos */}
+      <div className="mb-4">
+        <TransferAliasCard />
+      </div>
+
       <WishlistGrid items={items} user={user} onToggle={handleToggle} />
     </>
   );
