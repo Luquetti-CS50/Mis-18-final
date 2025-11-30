@@ -9,6 +9,7 @@ import type {
 } from "../../types";
 import { normalizeName } from "./normalize";
 import { SEED_USERS, SEED_TABLES, SEED_WISHLIST, MOCK_SONGS_DB } from "./seeds";
+import { supabase } from "./supabaseClient";
 
 class MockDB {
   private load<T>(key: string, seed: T): T {
@@ -70,8 +71,39 @@ class MockDB {
     const updated: User = { ...existing, ...patch };
     const next = users.map((u) => (u.id === userId ? updated : u));
     this.save("users", next);
+
+    // 🔄 Espejo en Supabase (no esperamos la promesa)
+    try {
+      const payload: any = {
+        name: updated.name,
+        normalized_name: updated.normalizedName,
+        table_id: (updated as any).tableId ?? null,
+        music_comment: updated.musicComment ?? null,
+        is_admin: !!updated.isAdmin,
+        has_logged_in: !!updated.hasLoggedIn,
+        is_child: !!updated.isChild,
+      };
+
+      // Campos opcionales que existen en el modelo User pero no en la tabla original
+      if ((updated as any).attendanceStatus !== undefined) {
+        payload.attendance_status = (updated as any).attendanceStatus ?? null;
+      }
+      if ((updated as any).seatAssignedByUserId !== undefined) {
+        payload.seat_assigned_by_user_id =
+          (updated as any).seatAssignedByUserId ?? null;
+      }
+
+      void supabase
+        .from("users")
+        .update(payload)
+        .eq("id", updated.id);
+    } catch (err) {
+      console.error("[Supabase][updateUser] error", err);
+    }
+
     return updated;
   }
+
 
   // --- Tables ---
   getTables(): Table[] {
@@ -108,7 +140,7 @@ class MockDB {
     });
   }
 
-  addSong(song: Song) {
+addSong(song: Song) {
     const songs = this.getSongs();
     // Evitar duplicados exactos (mismo título+artista+user)
     if (
@@ -119,8 +151,23 @@ class MockDB {
           s.suggestedByUserId === song.suggestedByUserId
       )
     ) {
-      songs.push(song);
-      this.save("songs", songs);
+      const next = [...songs, song];
+      this.save("songs", next);
+
+      // 🔄 Espejo en Supabase
+      try {
+        void supabase.from("songs").insert({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          platform: song.platform,
+          thumbnail_url: song.thumbnailUrl,
+          platform_url: song.platformUrl ?? null,
+          suggested_by_user_id: song.suggestedByUserId,
+        });
+      } catch (err) {
+        console.error("[Supabase][addSong] error", err);
+      }
     }
   }
 
@@ -131,14 +178,33 @@ class MockDB {
 
   addPreference(pref: MusicPreference) {
     const prefs = this.getPreferences();
-    prefs.push(pref);
-    this.save("prefs", prefs);
+    const next = [...prefs, pref];
+    this.save("prefs", next);
+
+    // 🔄 Espejo en Supabase
+    try {
+      void supabase.from("music_preferences").insert({
+        id: pref.id,
+        user_id: pref.userId,
+        genre: pref.genre,
+      });
+    } catch (err) {
+      console.error("[Supabase][addPreference] error", err);
+    }
   }
 
   removePreference(id: string) {
     const prefs = this.getPreferences().filter((p) => p.id !== id);
     this.save("prefs", prefs);
+
+    // 🔄 Espejo en Supabase
+    try {
+      void supabase.from("music_preferences").delete().eq("id", id);
+    } catch (err) {
+      console.error("[Supabase][removePreference] error", err);
+    }
   }
+
 
   // --- Music Comments (nuevo modelo) ---
   getMusicComments(): MusicComment[] {
@@ -165,8 +231,8 @@ class MockDB {
       createdAt: new Date().toISOString(),
     };
 
-    comments.push(newComment);
-    this.save("musicComments", comments);
+    const nextComments = [...comments, newComment];
+    this.save("musicComments", nextComments);
 
     // Actualizamos el user.musicComment con el último comentario
     const users = this.getUsers();
@@ -180,10 +246,28 @@ class MockDB {
         u.id === userId ? updatedUser : u
       );
       this.save("users", nextUsers);
+
+      // 🔄 Espejo en Supabase (comentario + último comentario del user)
+      try {
+        void supabase.from("music_comments").insert({
+          id: newComment.id,
+          user_id: userId,
+          text: newComment.text,
+          created_at: newComment.createdAt,
+        });
+
+        void supabase
+          .from("users")
+          .update({ music_comment: trimmed })
+          .eq("id", userId);
+      } catch (err) {
+        console.error("[Supabase][addMusicComment] error", err);
+      }
     }
 
     return newComment;
   }
+
 
   /**
    * Elimina un comentario. Recalcula user.musicComment para ese usuario:
@@ -222,7 +306,20 @@ class MockDB {
       u.id === userId ? updatedUser : u
     );
     this.save("users", nextUsers);
+
+    // 🔄 Espejo en Supabase (borrar comentario + actualizar último texto)
+    try {
+      void supabase.from("music_comments").delete().eq("id", commentId);
+
+      void supabase
+        .from("users")
+        .update({ music_comment: lastText ?? null })
+        .eq("id", userId);
+    } catch (err) {
+      console.error("[Supabase][deleteMusicComment] error", err);
+    }
   }
+
 
   // --- Wishlist ---
   getWishlist(): WishlistItem[] {
@@ -242,7 +339,20 @@ class MockDB {
       item.takenByUserId = userId;
     }
     this.save("wishlist", items);
+
+    // 🔄 Espejo en Supabase
+    try {
+      void supabase
+        .from("wishlist_items")
+        .update({
+          is_taken: item.isTaken,
+          taken_by_user_id: item.isTaken ? userId : null,
+        })
+        .eq("id", item.id);
+    } catch (err) {
+      console.error("[Supabase][toggleWishlistItem] error", err);
+    }
   }
-}
+
 
 export const db = new MockDB();
