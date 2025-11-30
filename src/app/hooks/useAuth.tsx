@@ -26,9 +26,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   });
 
+  // 🔹 Ahora el login actualiza también hasLoggedIn en la “DB”
   const loginWithUser = (user: User) => {
-    setCurrentUser(user);
-    localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+    // Marcamos hasLoggedIn en DB (si ya era true, no pasa nada)
+    const updated = db.updateUser(user.id, { hasLoggedIn: true });
+
+    const finalUser: User =
+      updated ?? {
+        ...user,
+        hasLoggedIn: true,
+      };
+
+    setCurrentUser(finalUser);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(finalUser));
   };
 
   const logout = () => {
