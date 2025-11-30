@@ -14,6 +14,11 @@ export const WishlistPage: React.FC<Props> = ({ user }) => {
   const items = useData(() => db.getWishlist(), "wishlist");
 
   const handleToggle = (item: WishlistItem) => {
+    // Si el regalo ya está reservado por otra persona, no hacemos nada
+    if (item.isTaken && item.takenByUserId && item.takenByUserId !== user.id) {
+      return;
+    }
+
     db.toggleWishlistItem(item.id, user.id);
   };
 
@@ -25,7 +30,7 @@ export const WishlistPage: React.FC<Props> = ({ user }) => {
       />
       <p className="text-xs text-gray-400 mb-4">
         Tocá un regalo para reservarlo. Si cambiás de idea, tocás de nuevo y se
-        libera. Si ya lo reservó otra persona, !llegaste tarde¡
+        libera. Si ya lo reservó otra persona, ¡llegaste tarde!
       </p>
       <WishlistGrid items={items} user={user} onToggle={handleToggle} />
     </>
