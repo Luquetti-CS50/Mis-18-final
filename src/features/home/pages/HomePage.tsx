@@ -30,11 +30,10 @@ export const HomePage: React.FC<Props> = ({ user }) => {
   );
 
   const mySongs = useMemo(
-    () => songs.filter((s) => s.suggestedByUserId === user.id),
+    () => songs.filter((s) => s.requestedByUserId === user.id),
     [songs, user.id]
   );
 
-  // Mapa idMesa -> Mesa
   const tableMap = useMemo(() => {
     const map: Record<string, Table> = {};
     tables.forEach((t) => {
@@ -76,8 +75,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
       tasks.push({
         type: "table",
         title: "Elegí tu mesa",
-        description:
-          "Ubicate con tu grupo para que no haya quilombo el mismo día.",
+        description: "Ayudanos a organizar las mesas para que todos estén cómodos.",
         link: "/tables",
       });
     }
@@ -91,11 +89,21 @@ export const HomePage: React.FC<Props> = ({ user }) => {
 
   const showAdminShield = user.isAdmin === true;
 
+  // 👇 Apodo random por sesión (si no hay apodos, cae al primer nombre)
+  const [sessionNickname] = useState(() => {
+    const nicknames = user.nicknames && user.nicknames.length > 0
+      ? user.nicknames
+      : [user.name.split(" ")[0]];
+
+    const idx = Math.floor(Math.random() * nicknames.length);
+    return nicknames[idx];
+  });
+
   return (
     <>
       <div className="flex items-start justify-between gap-3">
         <PageTitle
-          title={`Hola, ${user.name.split(" ")[0]} 👋`}
+          title={`Hola, ${sessionNickname} 👋`}
           subtitle="Te doy la bienvenida al panel de la fiesta."
         />
 
@@ -103,7 +111,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
           <button
             type="button"
             onClick={handleOpenAdmin}
-            className="mt-1 inline-flex items-center justify-center p-2 rounded-full bg-white/5 border border-cyan-400/60 text-cyan-300 hover:bg-cyan-500/10 hover:text-cyan-100 hover:shadow-[0_0_12px_rgba(34,211,238,0.8)] transition-all"
+            className="mt-1 inline-flex items-center justify-center rounded-full border border-cyan-400/60 bg-black/40 p-2 text-cyan-200 hover:bg-cyan-500/10 hover:border-cyan-300 hover:shadow-[0_0_12px_rgba(34,211,238,0.8)] transition-all"
             title="Abrir panel de administración"
           >
             <Shield size={18} />
@@ -126,7 +134,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
           <button
             type="button"
             onClick={() => setShowAllConfirmed((v) => !v)}
-            className="text-[11px] px-2 py-[3px] rounded-md border border-cyan-400/60 text-cyan-200 bg-cyan-500/10 hover:bg-cyan-500/20 transition"
+            className="text-[11px] px-2 py-[3px] rounded-md border border-cyan-500/40 text-cyan-200 bg-cyan-500/10 hover:bg-cyan-500/20 transition"
           >
             {showAllConfirmed ? "Ocultar lista" : "Ver lista completa"}
           </button>
@@ -135,7 +143,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
         <ConfirmedGuestsCarousel users={confirmedUsers} />
 
         {showAllConfirmed && confirmedUsers.length > 0 && (
-          <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-gray-100 space-y-1">
+          <div className="mt-2 max-h-40 overflow-y-auto rounded-md border border-white/10 bg-black/40 px-3 py-2 text-xs text-gray-100 space-y-1">
             {confirmedUsers.map((u) => {
               const table = u.tableId ? tableMap[u.tableId] : undefined;
               const mesaLabel =
