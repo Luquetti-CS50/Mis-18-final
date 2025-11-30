@@ -9,11 +9,7 @@ interface Props {
   onToggle: () => void;
 }
 
-export const WishlistItemCard: React.FC<Props> = ({
-  item,
-  user,
-  onToggle,
-}) => {
+export const WishlistItemCard: React.FC<Props> = ({ item, user, onToggle }) => {
   const isTakenByCurrent = item.isTaken && item.takenByUserId === user.id;
   const isTakenByOther =
     item.isTaken &&
@@ -21,28 +17,23 @@ export const WishlistItemCard: React.FC<Props> = ({
     item.takenByUserId !== user.id;
 
   let statusLabel = "";
-  let helperText = "";
   let statusClass =
-    "inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium";
+    "flex-1 text-center px-3 py-1 rounded-full text-[11px] font-medium whitespace-nowrap transition";
 
   if (isTakenByCurrent) {
     statusLabel = "Reservaste este regalo";
-    helperText = "(tocá de nuevo para liberar)";
     statusClass += " bg-emerald-500/10 text-emerald-300 border border-emerald-500/40";
   } else if (isTakenByOther) {
     statusLabel = "Ya lo reservó otra persona";
-    helperText = "Probá elegir otro regalo de la lista ✨";
     statusClass += " bg-zinc-800 text-zinc-300 border border-zinc-600/60";
   } else {
-    statusLabel = "Tocar para reservar este regalo";
+    statusLabel = "Tocar para reservar";
     statusClass += " bg-cyan-500/10 text-cyan-300 border border-cyan-500/40";
   }
 
-  const handleOpenLink = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation(); // que no dispare la reserva
-    if (item.linkUrl) {
-      window.open(item.linkUrl, "_blank", "noopener,noreferrer");
-    }
+  const handleOpenLink = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (item.linkUrl) window.open(item.linkUrl, "_blank", "noopener,noreferrer");
   };
 
   const initials =
@@ -58,8 +49,9 @@ export const WishlistItemCard: React.FC<Props> = ({
       onClick={!isTakenByOther ? onToggle : undefined}
       className={isTakenByOther ? "opacity-60 cursor-not-allowed" : ""}
     >
-      <div className="flex gap-3 items-center">
-        {/* Imagen del producto o placeholder con iniciales */}
+      <div className="flex items-center gap-4">
+        
+        {/* Mini-imagen o iniciales */}
         <div className="flex-shrink-0">
           {item.imageUrl ? (
             <img
@@ -68,36 +60,38 @@ export const WishlistItemCard: React.FC<Props> = ({
               className="w-16 h-16 rounded-lg object-cover border border-cyan-500/40"
             />
           ) : (
-            <div className="w-16 h-16 rounded-lg border border-cyan-500/30 bg-gradient-to-br from-cyan-500/20 via-fuchsia-500/10 to-transparent flex items-center justify-center text-xs font-semibold text-cyan-100">
+            <div className="w-16 h-16 rounded-lg border border-cyan-500/30 bg-gradient-to-br from-cyan-500/20 via-fuchsia-500/10 to-transparent flex items-center justify-center text-sm text-cyan-100 font-bold">
               {initials}
             </div>
           )}
         </div>
 
-        <div className="flex flex-col gap-1 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-white">
-                {item.name}
-              </h3>
-            </div>
+        <div className="flex flex-col flex-1 gap-2">
+          <h3 className="text-sm font-semibold text-white leading-tight">{item.name}</h3>
 
-            {statusLabel && <span className={statusClass}>{statusLabel}</span>}
+          {/* 🔥 Ambos botones al mismo nivel */}
+          <div className="flex gap-2 w-full items-center">
+
+            <button
+              type="button"
+              onClick={handleOpenLink}
+              className="flex-1 text-center px-3 py-1 rounded-full text-[11px] font-medium border border-cyan-500/60 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/20"
+            >
+              Ver producto
+            </button>
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (!isTakenByOther) onToggle();
+              }}
+              className={`${statusClass} hover:opacity-90`}
+            >
+              {statusLabel}
+            </button>
+
           </div>
-
-          {item.linkUrl && (
-            <div className="mt-2">
-              <button
-                type="button"
-                onClick={handleOpenLink}
-                className="text-[11px] px-2 py-1 rounded-full border border-cyan-500/60 bg-cyan-500/10 text-cyan-100 hover:bg-cyan-500/20 transition-colors"
-              >
-                Ver producto
-              </button>
-            </div>
-          )}
-
-          <p className="mt-1 text-[11px] text-gray-300">{helperText}</p>
         </div>
       </div>
     </NeonCard>
