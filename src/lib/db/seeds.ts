@@ -632,42 +632,111 @@ export const SEED_TABLES: Table[] = Array.from({ length: 10 }).map(
   })
 );
 
+// src/lib/db/seeds.ts  (solo reemplazar este bloque)
+
 export const SEED_WISHLIST: WishlistItem[] = [
   {
     id: "w1",
-    name: "Auriculares Sony",
-    imageUrl: "https://picsum.photos/200/200?random=1",
+    name: "Notebook Lenovo IdeaPad Flex 5 16\" (Ryzen 7)",
+    imageUrl: "https://m.media-amazon.com/images/I/4164cS0wTrL._AC_.jpg",
+    linkUrl:
+      "https://tiendamia.com/ar/p/amz/b0fdh3cj57/lenovo-ideapad-flex-5-16abr8-2025-laptop-16-wuxga-ips",
     isTaken: false,
   },
   {
     id: "w2",
-    name: "Gift Card Zara",
-    imageUrl: "https://picsum.photos/200/200?random=2",
+    name: "Samsung Galaxy Samrtwatch 7",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_615914-MLA99442302936_112025-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/p/MLA38650089?pdp_filters=item_id:MLA2072564196#origin=share&sid=share&wid=MLA2072564196&action=whatsapp",
     isTaken: false,
   },
   {
     id: "w3",
-    name: "Entrada Concierto",
-    imageUrl: "https://picsum.photos/200/200?random=3",
+    name: "Samsung Galaxy S23 Ultra 512GB (Renewed)",
+    imageUrl: "https://m.media-amazon.com/images/I/51ZZO2wp8EL._AC_SL1000_.jpg",
+    linkUrl:
+      "https://tiendamia.com/ar/p/amz/b0c51q5z9k/samsung-galaxy-s23-ultra-renewed-5g-factory-unlocked-512gb?utm_medium=referral&utm_source=share-pdp",
     isTaken: false,
   },
   {
     id: "w4",
-    name: "Zapatillas Nike",
-    imageUrl: "https://picsum.photos/200/200?random=4",
-    isTaken: true,
-    takenByUserId: "u2",
+    name: "Power Bank Suono",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_988881-MLA95520105252_102025-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/p/MLA45525874?pdp_filters=item_id:MLA2203764226#origin=share&sid=share&wid=MLA2203764226&action=copy",
+    isTaken: false,
   },
   {
     id: "w5",
-    name: "Libro de Diseño",
-    imageUrl: "https://picsum.photos/200/200?random=5",
+    name: "Auriculares JBL Tune 770nc",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_823887-MLA99496133602_112025-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/p/MLA53285777?pdp_filters=item_id:MLA2506259684#origin=share&sid=share&wid=MLA2506259684&action=whatsapp",
     isTaken: false,
   },
   {
     id: "w6",
-    name: "Cámara Instax",
-    imageUrl: "https://picsum.photos/200/200?random=6",
+    name: "Campera Impermeable Micro Polar (Talle XL)",
+    imageUrl: "https://http2.mlstatic.com/D_Q_NP_601751-MLA77838586028_072024-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/up/MLAU3153416601?pdp_filters=item_id:MLA2068790410#origin=share&sid=share&wid=MLA2068790410&action=whatsapp",
+    isTaken: false,
+  },
+  {
+    id: "w7",
+    name: "Cuchillo de Cocina de Acero de Damasco",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_873351-MLA99466744682_112025-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/p/MLA44588562?pdp_filters=item_id:MLA1474690861#origin=share&sid=share&wid=MLA1474690861&action=whatsapp",
+    isTaken: false,
+  },
+  {
+    id: "w8",
+    name: "PlayStation 4 Pro",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_944501-MLA99299130767_112025-F.webp",
+    linkUrl:
+      "https://articulo.mercadolibre.com.ar/MLA-1590845771#origin=share&sid=share&action=whatsapp",
+    isTaken: false,
+  },
+  {
+    id: "w9",
+    name: "Buzo con Capucha de Alpina (Talle XL)",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_923370-MLA84351171021_052025-F.webp",
+    linkUrl:
+      "https://articulo.mercadolibre.com.ar/MLA-1136900970?attributes=COLOR_SECONDARY_COLOR:TmVncm8gUG9sYXI=,SIZE:WEw=#origin=share&sid=share&action=whatsapp",
+    isTaken: false,
+  },
+  {
+    id: "w10",
+    name: "Zapatillas adidas Grand Court Base 2.0 (Talle 41-42)",
+    imageUrl: "https://sportline.vtexassets.com/arquivos/ids/923494/004025000GW9251_1.jpg?v=638129128141600000",
+    linkUrl:
+      "https://www.sportline.com.ar/grand-court-base-2-0-004025000gw9251/p?idsku=2423854&gad_source=1&gad_campaignid=16290918871&gbraid=0AAAAADk1U5I-m2pGOvA8pXeBC9NtkAFL4&gclid=Cj0KCQiA0KrJBhCOARIsAGIy9wCI3gUfgPPK5aL_5ieHfnpZVSJIwQ7WjahX-DAC9Ll4XS14-fGPY6IaAsuUEALw_wcB",
+    isTaken: false,
+  },
+  {
+    id: "w11",
+    name: "Auriculares Samsung Galaxy Buds2 Pro",
+    imageUrl: "https://http2.mlstatic.com/D_Q_NP_610769-CBT81547552458_012025-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/p/MLA2005001158?pdp_filters=item_id:MLA1487963065#origin=share&sid=share&wid=MLA1487963065&action=whatsapp",
+    isTaken: false,
+  },
+  {
+    id: "w12",
+    name: "PC Gamer Ryzen 7 5700G",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_618895-MLA99454500152_112025-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/p/MLA47543910?pdp_filters=item_id:MLA2039768678#origin=share&sid=share&wid=MLA2039768678&action=whatsapp",
+    isTaken: false,
+  },
+  {
+    id: "w13",
+    name: "Perfume Versace Eros 200ml",
+    imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_800970-MLU75888175947_042024-F.webp",
+    linkUrl:
+      "https://www.mercadolibre.com.ar/p/MLA17892343?pdp_filters=item_id:MLA1557220025#origin=share&sid=share&wid=MLA1557220025&action=whatsapp",
     isTaken: false,
   },
 ];
