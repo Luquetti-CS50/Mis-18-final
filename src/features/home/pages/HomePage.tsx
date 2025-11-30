@@ -24,7 +24,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
   const songs = useData(() => db.getSongs(), "songs");
   const tables = useData(() => db.getTables(), "tables");
 
-  // Refrescamos el usuario actual desde DB (por si cambió mesa/estado)
+  // Usuario fresco desde DB (por si cambió mesa/estado en otra vista)
   const currentUser = useMemo(() => {
     const fresh = allUsers.find((u) => u.id === user.id);
     return fresh ?? user;
@@ -95,7 +95,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
 
   const showAdminShield = currentUser.isAdmin === true;
 
-  // 👇 Apodo random por sesión (si no hay apodos, cae al primer nombre)
+  // Apodo random por sesión (si no hay apodos, cae al primer nombre)
   const [sessionNickname] = useState(() => {
     const nicknames =
       currentUser.nicknames && currentUser.nicknames.length > 0
@@ -106,7 +106,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
     return nicknames[idx];
   });
 
-  // 👇 Info para la tarjeta “X te asignó una mesa”
+  // Info para la tarjeta “X te asignó una mesa”
   const seatAssignmentInfo = useMemo(() => {
     const u = currentUser;
     if (!u.tableId || !u.seatAssignedByUserId) return null;
@@ -114,12 +114,6 @@ export const HomePage: React.FC<Props> = ({ user }) => {
 
     const assigner = allUsers.find((x) => x.id === u.seatAssignedByUserId);
     if (!assigner) return null;
-
-    // Opcional: si querés exigir misma familia, descomentá esto
-    if (u.familyCode && assigner.familyCode && u.familyCode !== assigner.familyCode) {
-      // Distinta familia, no mostramos nada
-      // return null;
-    }
 
     const table = tableMap[u.tableId];
     const mesaLabel =
@@ -131,12 +125,20 @@ export const HomePage: React.FC<Props> = ({ user }) => {
         : assigner.name.split(" ")[0];
 
     return {
+      assignerId: assigner.id,
       assignerName: assignerDisplay,
       mesaLabel,
     };
   }, [currentUser, allUsers, tableMap]);
 
-  const goToTables = () => {
+  const handleGoToTablesFromAssignment = () => {
+    // Ni bien toca el botón, tomamos como que es una decisión consciente:
+    // marcamos que ahora ÉL es el "dueño" de esa mesa (a nivel asiento),
+    // así la tarjeta desaparece al volver a Home.
+    db.updateUser(currentUser.id, {
+      seatAssignedByUserId: currentUser.id,
+    });
+
     navigate("/tables");
   };
 
@@ -176,7 +178,7 @@ export const HomePage: React.FC<Props> = ({ user }) => {
           </p>
           <button
             type="button"
-            onClick={goToTables}
+            onClick={handleGoToTablesFromAssignment}
             className="inline-flex items-center justify-center rounded-lg border border-cyan-400/70 bg-cyan-500/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 hover:bg-cyan-500/20 hover:shadow-[0_0_10px_rgba(34,211,238,0.5)] transition"
           >
             Ver mesa asignada
