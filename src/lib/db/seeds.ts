@@ -645,7 +645,7 @@ export const SEED_WISHLIST: WishlistItem[] = [
   },
   {
     id: "w2",
-    name: "Samsung Galaxy Samrtwatch 7",
+    name: "Samsung Galaxy Smartwatch 7",
     imageUrl: "https://http2.mlstatic.com/D_NQ_NP_2X_615914-MLA99442302936_112025-F.webp",
     linkUrl:
       "https://www.mercadolibre.com.ar/p/MLA38650089?pdp_filters=item_id:MLA2072564196#origin=share&sid=share&wid=MLA2072564196&action=whatsapp",
