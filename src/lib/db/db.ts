@@ -5,6 +5,7 @@ import type {
   Song,
   WishlistItem,
   MusicPreference,
+  MusicComment,
 } from "../../types";
 import { normalizeName } from "./normalize";
 import { SEED_USERS, SEED_TABLES, SEED_WISHLIST, MOCK_SONGS_DB } from "./seeds";
@@ -34,6 +35,10 @@ class MockDB {
     return this.load<User[]>("users", SEED_USERS);
   }
 
+  /**
+   * Versión original de login (ya casi no la usamos directamente),
+   * la dejamos por compatibilidad.
+   */
   login(name: string): User | null {
     const users = this.getUsers();
     const normalized = normalizeName(name);
@@ -54,6 +59,9 @@ class MockDB {
     return user;
   }
 
+  /**
+   * Actualiza parcialmente un usuario.
+   */
   updateUser(userId: string, patch: Partial<User>): User | null {
     const users = this.getUsers();
     const existing = users.find((u) => u.id === userId);
@@ -130,6 +138,90 @@ class MockDB {
   removePreference(id: string) {
     const prefs = this.getPreferences().filter((p) => p.id !== id);
     this.save("prefs", prefs);
+  }
+
+  // --- Music Comments (nuevo modelo) ---
+  getMusicComments(): MusicComment[] {
+    return this.load<MusicComment[]>("musicComments", []);
+  }
+
+  /**
+   * Agrega un nuevo comentario musical para un usuario.
+   * También mantiene user.musicComment con el último comentario,
+   * para que Home siga sabiendo si ya comentó algo.
+   */
+  addMusicComment(userId: string, text: string): MusicComment {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      throw new Error("Comentario vacío");
+    }
+
+    const comments = this.getMusicComments();
+
+    const newComment: MusicComment = {
+      id: `mc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      userId,
+      text: trimmed,
+      createdAt: new Date().toISOString(),
+    };
+
+    comments.push(newComment);
+    this.save("musicComments", comments);
+
+    // Actualizamos el user.musicComment con el último comentario
+    const users = this.getUsers();
+    const existing = users.find((u) => u.id === userId);
+    if (existing) {
+      const updatedUser: User = {
+        ...existing,
+        musicComment: trimmed,
+      };
+      const nextUsers = users.map((u) =>
+        u.id === userId ? updatedUser : u
+      );
+      this.save("users", nextUsers);
+    }
+
+    return newComment;
+  }
+
+  /**
+   * Elimina un comentario. Recalcula user.musicComment para ese usuario:
+   * - Si no quedan comentarios → undefined
+   * - Si quedan → el texto del último comentario por fecha.
+   */
+  deleteMusicComment(commentId: string) {
+    const comments = this.getMusicComments();
+    const target = comments.find((c) => c.id === commentId);
+    if (!target) return;
+
+    const remaining = comments.filter((c) => c.id !== commentId);
+    this.save("musicComments", remaining);
+
+    const userId = target.userId;
+
+    // Recalcular user.musicComment para ese usuario
+    const users = this.getUsers();
+    const existing = users.find((u) => u.id === userId);
+    if (!existing) return;
+
+    const userComments = remaining
+      .filter((c) => c.userId === userId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const lastText = userComments.length
+      ? userComments[userComments.length - 1].text
+      : undefined;
+
+    const updatedUser: User = {
+      ...existing,
+      musicComment: lastText,
+    };
+
+    const nextUsers = users.map((u) =>
+      u.id === userId ? updatedUser : u
+    );
+    this.save("users", nextUsers);
   }
 
   // --- Wishlist ---
