@@ -54,12 +54,15 @@ class MockDB {
     return user;
   }
 
+  updateUser(userId: string, patch: Partial<User>): User | null {
+    const users = this.getUsers();
+    const existing = users.find((u) => u.id === userId);
+    if (!existing) return null;
 
-  updateUser(updatedUser: User) {
-    const users = this.getUsers().map((u) =>
-      u.id === updatedUser.id ? updatedUser : u
-    );
-    this.save("users", users);
+    const updated: User = { ...existing, ...patch };
+    const next = users.map((u) => (u.id === userId ? updated : u));
+    this.save("users", next);
+    return updated;
   }
 
   // --- Tables ---
