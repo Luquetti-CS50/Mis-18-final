@@ -38,7 +38,9 @@ class MockDB {
     const users = this.getUsers();
     const normalized = normalizeName(name);
     const user = users.find((u) => u.normalizedName === normalized);
-    if (!user) return null;
+
+    // Si no existe o es un child, no permite login
+    if (!user || user.isChild) return null;
 
     if (!user.hasLoggedIn) {
       const updatedUser: User = { ...user, hasLoggedIn: true };
@@ -51,6 +53,7 @@ class MockDB {
 
     return user;
   }
+
 
   updateUser(updatedUser: User) {
     const users = this.getUsers().map((u) =>
