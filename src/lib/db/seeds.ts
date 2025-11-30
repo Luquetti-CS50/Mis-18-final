@@ -245,6 +245,12 @@ export const SEED_USERS: User[] = [
     normalizedName: "alejandra cosella",
     nicknames: ["Ale"],
   },
+    {
+    id: "u41",
+    name: "Sofía Bialostozki",
+    normalizedName: "sofia bialostozki",
+    nicknames: ["Sofi"],
+  },
 
   /* ──────────────────────────────────────────── */
   /* 🔥 A PARTIR DE ACÁ = USUARIOS CON FAMILIA 🔥 */
