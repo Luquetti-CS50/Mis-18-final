@@ -313,6 +313,14 @@ export const SEED_USERS: User[] = [
     familyCode: "C",
     isChild: true,
   },
+  {
+    id: "C4",
+    name: "Luca Verón",
+    normalizedName: "luca veron",
+    nicknames: ["Luca"],
+    familyCode: "C",
+    isAdmin: true,
+  },
 
   // Familia D
   {
