@@ -35,7 +35,6 @@ export const WishlistItemCard: React.FC<Props> = ({
     statusClass += " bg-zinc-800 text-zinc-300 border border-zinc-600/60";
   } else {
     statusLabel = "Tocar para reservar este regalo";
-    helperText = "Cuando lo tengas, mantené la sorpresa y no digas nada 😉";
     statusClass += " bg-cyan-500/10 text-cyan-300 border border-cyan-500/40";
   }
 
