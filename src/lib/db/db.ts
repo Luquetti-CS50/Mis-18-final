@@ -575,7 +575,7 @@ class MockDB {
       console.error("[Supabase][toggleWishlistItem] error", err);
     }
   }
-
+}
 
 export const db = new MockDB();
 
