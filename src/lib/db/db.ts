@@ -322,37 +322,38 @@ addSong(song: Song) {
 
 
   // --- Wishlist ---
-  getWishlist(): WishlistItem[] {
-    return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
-  }
+getWishlist(): WishlistItem[] {
+ return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
+}
 
-  toggleWishlistItem(itemId: string, userId: string) {
-    const items = this.getWishlist();
-    const item = items.find((i) => i.id === itemId);
-    if (!item) return;
+toggleWishlistItem(itemId: string, userId: string) {
+ const items = this.getWishlist();
+ const item = items.find((i) => i.id === itemId);
+ if (!item) return;
 
-    if (item.isTaken && item.takenByUserId === userId) {
-      item.isTaken = false;
-      item.takenByUserId = undefined;
-    } else if (!item.isTaken) {
-      item.isTaken = true;
-      item.takenByUserId = userId;
-    }
-    this.save("wishlist", items);
+ if (item.isTaken && item.takenByUserId === userId) {
+   item.isTaken = false;
+   item.takenByUserId = undefined;
+ } else if (!item.isTaken) {
+   item.isTaken = true;
+   item.takenByUserId = userId;
+ }
 
-    // 🔄 Espejo en Supabase
-    try {
-      void supabase
-        .from("wishlist_items")
-        .update({
-          is_taken: item.isTaken,
-          taken_by_user_id: item.isTaken ? userId : null,
-        })
-        .eq("id", item.id);
-    } catch (err) {
-      console.error("[Supabase][toggleWishlistItem] error", err);
-    }
-  }
+ this.save("wishlist", items);
 
+ // 🔄 (si querés el espejo Supabase, va acá adentro)
+ // try {
+ //   void supabase
+ //     .from("wishlist_items")
+ //     .update({
+ //       is_taken: item.isTaken,
+ //       taken_by_user_id: item.isTaken ? userId : null,
+ //     })
+ //     .eq("id", item.id);
+ // } catch (err) {
+ //   console.error("[Supabase][toggleWishlistItem] error", err);
+ // }
+}
+}
 
 export const db = new MockDB();
