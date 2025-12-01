@@ -8,7 +8,12 @@ import type {
   MusicComment,
 } from "../../types";
 import { normalizeName } from "./normalize";
-import { SEED_USERS, SEED_TABLES, SEED_WISHLIST, MOCK_SONGS_DB } from "./seeds";
+import {
+  SEED_USERS,
+  SEED_TABLES,
+  SEED_WISHLIST,
+  MOCK_SONGS_DB,
+} from "./seeds";
 import { supabase } from "./supabaseClient";
 
 class MockDB {
@@ -31,28 +36,46 @@ class MockDB {
     window.dispatchEvent(new Event(`db_update_${key}`));
   }
 
-  // --- Supabase: sync inicial -> localStorage ---
+  // --- Supabase: sync inicial -> cache local (solo lectura desde Supabase) ---
   async syncFromSupabase() {
     try {
       // 1) USERS
       {
         const { data, error } = await supabase.from("users").select("*");
         if (!error && data) {
-          const users: User[] = data.map((row: any) => ({
-            id: row.id,
-            name: row.name,
-            normalizedName: row.normalized_name,
-            nicknames: undefined,
-            familyCode: (row as any).family_code ?? undefined,
-            attendanceStatus: (row as any).attendance_status ?? "pending",
-            tableId: row.table_id ?? null,
-            seatAssignedByUserId:
-              (row as any).seat_assigned_by_user_id ?? null,
-            musicComment: row.music_comment ?? undefined,
-            isAdmin: !!row.is_admin,
-            hasLoggedIn: !!row.has_logged_in,
-            isChild: !!row.is_child,
-          }));
+          const users: User[] = data.map((row: any) => {
+            const base = SEED_USERS.find((u) => u.id === row.id);
+
+            const merged: User = {
+              ...(base ??
+                ({
+                  id: row.id,
+                  name: row.name,
+                  normalizedName:
+                    row.normalized_name ?? normalizeName(row.name ?? ""),
+                } as User)),
+              name: row.name ?? base?.name ?? "",
+              normalizedName:
+                row.normalized_name ??
+                base?.normalizedName ??
+                normalizeName(row.name ?? ""),
+              attendanceStatus:
+                (row as any).attendance_status ??
+                base?.attendanceStatus ??
+                "pending",
+              tableId: row.table_id ?? base?.tableId ?? null,
+              seatAssignedByUserId:
+                (row as any).seat_assigned_by_user_id ??
+                base?.seatAssignedByUserId ??
+                null,
+              musicComment: row.music_comment ?? base?.musicComment,
+              isAdmin: (row.is_admin ?? base?.isAdmin ?? false) as boolean,
+              hasLoggedIn: (row.has_logged_in ?? base?.hasLoggedIn ?? false) as boolean,
+              isChild: (row.is_child ?? base?.isChild ?? false) as boolean,
+            };
+
+            return merged;
+          });
           this.save("users", users);
         } else if (error) {
           console.error("[Supabase][sync users] error", error);
@@ -74,7 +97,7 @@ class MockDB {
         }
       }
 
-      // 3) WISHLIST
+      // 3) WISHLIST (Supabase = estado, seeds = metadata)
       {
         const { data, error } = await supabase
           .from("wishlist_items")
@@ -88,6 +111,7 @@ class MockDB {
           for (const row of data) {
             const base = seedMap.get(row.id);
             if (!base) {
+              // Ítem en DB sin metadata en seeds: inventamos lo mínimo
               itemsFromDb.push({
                 id: row.id,
                 name: row.id,
@@ -107,7 +131,7 @@ class MockDB {
             });
           }
 
-          // Agregamos los del seed que no existan en la DB
+          // Aseguramos que todos los del seed existan en la lista final
           for (const base of SEED_WISHLIST) {
             if (!itemsFromDb.some((i) => i.id === base.id)) {
               itemsFromDb.push({
@@ -184,18 +208,16 @@ class MockDB {
 
   // --- Users ---
   getUsers(): User[] {
-    return this.load<User[]>("users", SEED_USERS);
+    // Ahora el seed es [], Supabase es la única fuente real
+    return this.load<User[]>("users", [] as User[]);
   }
 
-  /**
-   * Versión original de login (compatibilidad).
-   */
   login(name: string): User | null {
     const users = this.getUsers();
     const normalized = normalizeName(name);
     const user = users.find((u) => u.normalizedName === normalized);
 
-    // Si no existe o es un child, no permite login
+    // Si no existe o es child, no logea
     if (!user || user.isChild) return null;
 
     if (!user.hasLoggedIn) {
@@ -204,15 +226,23 @@ class MockDB {
         u.id === updatedUser.id ? updatedUser : u,
       );
       this.save("users", updatedUsers);
+
+      // espejo Supabase
+      try {
+        void supabase
+          .from("users")
+          .update({ has_logged_in: true })
+          .eq("id", updatedUser.id);
+      } catch (err) {
+        console.error("[Supabase][login] error", err);
+      }
+
       return updatedUser;
     }
 
     return user;
   }
 
-  /**
-   * Actualiza parcialmente un usuario.
-   */
   updateUser(userId: string, patch: Partial<User>): User | null {
     const users = this.getUsers();
     const existing = users.find((u) => u.id === userId);
@@ -222,7 +252,7 @@ class MockDB {
     const next = users.map((u) => (u.id === userId ? updated : u));
     this.save("users", next);
 
-    // Espejo en Supabase (no bloqueamos la UI si falla)
+    // Espejo en Supabase
     try {
       const payload: any = {
         name: updated.name,
@@ -252,7 +282,8 @@ class MockDB {
 
   // --- Tables ---
   getTables(): Table[] {
-    return this.load<Table[]>("tables", SEED_TABLES);
+    // seed vacío, la verdad viene de Supabase
+    return this.load<Table[]>("tables", [] as Table[]);
   }
 
   // --- Songs ---
@@ -263,24 +294,25 @@ class MockDB {
   async searchSongs(query: string): Promise<Song[]> {
     if (!query.trim()) return [];
 
+    // Simulación de búsqueda local con MOCK_SONGS_DB
+    const q = query.toLowerCase();
+    const results = MOCK_SONGS_DB.filter(
+      (s) =>
+        s.title?.toLowerCase().includes(q) ||
+        s.artist?.toLowerCase().includes(q),
+    );
+
+    const songs: Song[] = results.map((r, i) => ({
+      id: `search_${Date.now()}_${i}`,
+      title: r.title ?? "Canción sin título",
+      artist: r.artist ?? "Artista desconocido",
+      platform: r.platform ?? "spotify",
+      thumbnailUrl: r.thumbnailUrl ?? "https://via.placeholder.com/100",
+      platformUrl: r.platformUrl,
+      suggestedByUserId: "",
+    }));
+
     return new Promise((resolve) => {
-      const q = query.toLowerCase();
-      const results = MOCK_SONGS_DB.filter(
-        (s) =>
-          s.title?.toLowerCase().includes(q) ||
-          s.artist?.toLowerCase().includes(q),
-      );
-
-      const songs: Song[] = results.map((r, i) => ({
-        id: `search_${Date.now()}_${i}`,
-        title: r.title ?? "Canción sin título",
-        artist: r.artist ?? "Artista desconocido",
-        platform: r.platform ?? "spotify",
-        thumbnailUrl: r.thumbnailUrl ?? "https://via.placeholder.com/100",
-        platformUrl: r.platformUrl,
-        suggestedByUserId: "",
-      }));
-
       setTimeout(() => resolve(songs), 400);
     });
   }
@@ -350,15 +382,11 @@ class MockDB {
     }
   }
 
-  // --- Music Comments (nuevo modelo) ---
+  // --- Music Comments ---
   getMusicComments(): MusicComment[] {
     return this.load<MusicComment[]>("musicComments", []);
   }
 
-  /**
-   * Agrega un nuevo comentario musical para un usuario.
-   * También mantiene user.musicComment con el último comentario.
-   */
   addMusicComment(userId: string, text: string): MusicComment {
     const trimmed = text.trim();
     if (!trimmed) {
@@ -411,11 +439,6 @@ class MockDB {
     return newComment;
   }
 
-  /**
-   * Elimina un comentario. Recalcula user.musicComment para ese usuario:
-   * - Si no quedan comentarios → undefined
-   * - Si quedan → el texto del último comentario por fecha.
-   */
   deleteMusicComment(commentId: string) {
     const comments = this.getMusicComments();
     const target = comments.find((c) => c.id === commentId);
@@ -464,6 +487,7 @@ class MockDB {
 
   // --- Wishlist ---
   getWishlist(): WishlistItem[] {
+    // Metadata (nombre, imagen, link) viene de seeds; estado viene de Supabase
     return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
   }
 
