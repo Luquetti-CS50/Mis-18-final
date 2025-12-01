@@ -289,9 +289,17 @@ class MockDB {
           (updated as any).seatAssignedByUserId ?? null;
       }
 
-      if (Object.keys(payload).length > 0) {
-        void supabase.from("users").update(payload).eq("id", updated.id);
-      }
+     if (Object.keys(payload).length > 0) {
+  void supabase
+    .from("users")
+    .update(payload)
+    .eq("id", updated.id)
+    .then(({ data, error, status }) => {
+      console.log("[Supabase][updateUser] payload", payload);
+      console.log("[Supabase][updateUser] result", { status, error, data });
+    });
+}
+
     } catch (err) {
       console.error("[Supabase][updateUser] error", err);
     }
