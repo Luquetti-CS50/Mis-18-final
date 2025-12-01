@@ -248,37 +248,55 @@ class MockDB {
     const existing = users.find((u) => u.id === userId);
     if (!existing) return null;
 
+    // 1) Actualizamos el usuario en memoria
     const updated: User = { ...existing, ...patch };
     const next = users.map((u) => (u.id === userId ? updated : u));
     this.save("users", next);
 
-    // Espejo en Supabase
+    // 2) Espejo en Supabase SOLO con los campos que realmente cambiaron
     try {
-      const payload: any = {
-        name: updated.name,
-        normalized_name: updated.normalizedName,
-        table_id: (updated as any).tableId ?? null,
-        music_comment: updated.musicComment ?? null,
-        is_admin: !!updated.isAdmin,
-        has_logged_in: !!updated.hasLoggedIn,
-        is_child: !!updated.isChild,
-      };
+      const payload: any = {};
 
-      if ((updated as any).attendanceStatus !== undefined) {
+      if (patch.name !== undefined) {
+        payload.name = updated.name;
+      }
+      if (patch.normalizedName !== undefined) {
+        payload.normalized_name = updated.normalizedName;
+      }
+      if ((patch as any).tableId !== undefined) {
+        payload.table_id = (updated as any).tableId ?? null;
+      }
+      if (patch.musicComment !== undefined) {
+        payload.music_comment = updated.musicComment ?? null;
+      }
+      if (patch.isAdmin !== undefined) {
+        payload.is_admin = !!updated.isAdmin;
+      }
+      if (patch.hasLoggedIn !== undefined) {
+        payload.has_logged_in = !!updated.hasLoggedIn;
+      }
+      if (patch.isChild !== undefined) {
+        payload.is_child = !!updated.isChild;
+      }
+      if ((patch as any).attendanceStatus !== undefined) {
         payload.attendance_status = (updated as any).attendanceStatus ?? null;
       }
-      if ((updated as any).seatAssignedByUserId !== undefined) {
+      if ((patch as any).seatAssignedByUserId !== undefined) {
         payload.seat_assigned_by_user_id =
           (updated as any).seatAssignedByUserId ?? null;
       }
 
-      void supabase.from("users").update(payload).eq("id", updated.id);
+      // Si no hay nada que mandar, no hacemos update
+      if (Object.keys(payload).length > 0) {
+        void supabase.from("users").update(payload).eq("id", updated.id);
+      }
     } catch (err) {
       console.error("[Supabase][updateUser] error", err);
     }
 
     return updated;
   }
+
 
   // --- Tables ---
   getTables(): Table[] {
