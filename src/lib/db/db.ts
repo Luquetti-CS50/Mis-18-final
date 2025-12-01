@@ -336,11 +336,14 @@ class MockDB {
   // ────────────────────────────────────────────────
   // MUSIC PREFERENCES
   // ────────────────────────────────────────────────
+  // ────────────────────────────────────────────────
+  // MUSIC PREFERENCES
+  // ────────────────────────────────────────────────
   getPreferences(): MusicPreference[] {
     return this.load<MusicPreference[]>("prefs", []);
   }
 
-  addPreference(pref: MusicPreference) {
+  async addPreference(pref: MusicPreference) {
     const prefs = this.getPreferences();
     const next = [...prefs, pref];
     this.save("prefs", next);
@@ -370,37 +373,49 @@ class MockDB {
     }
   }
 
-  removePreference(id: string) {
+  async removePreference(id: string) {
     const prefs = this.getPreferences();
     const target = prefs.find((p) => p.id === id);
     const remaining = prefs.filter((p) => p.id !== id);
+
+    // 🔹 Actualizamos UI / localStorage al toque
     this.save("prefs", remaining);
 
     if (!target) return;
 
     try {
-      void supabase
+      // 1) Intentar borrar por ID (cuando ya coincide con el UUID real)
+      const { error: errorById } = await supabase
+        .from("music_preferences")
+        .delete()
+        .eq("id", id);
+
+      if (errorById) {
+        console.error("[Supabase][removePreference] error by id", {
+          errorById,
+        });
+      }
+
+      // 2) Fallback: borrar por (user_id, genre) por si el id local no coincide aún
+      const { error: errorByFields } = await supabase
         .from("music_preferences")
         .delete()
         .eq("user_id", target.userId)
-        .eq("genre", target.genre)
-        .then(({ status, error, data }) => {
-          if (error) {
-            console.error("[Supabase][removePreference] error", {
-              status,
-              error,
-            });
-          } else {
-            console.log("[Supabase][removePreference] ok", {
-              status,
-              data,
-            });
-          }
-        });
+        .eq("genre", target.genre);
+
+      if (errorByFields) {
+        console.error(
+          "[Supabase][removePreference] error by fields",
+          { errorByFields },
+        );
+      } else {
+        console.log("[Supabase][removePreference] ok");
+      }
     } catch (err) {
       console.error("[Supabase][removePreference] error (throw)", err);
     }
   }
+
 
   // ────────────────────────────────────────────────
   // MUSIC COMMENTS
