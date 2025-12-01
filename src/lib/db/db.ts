@@ -513,6 +513,7 @@ class MockDB {
   // ────────────────────────────────────────────────
   // WISHLIST
   // ────────────────────────────────────────────────
+  // --- Wishlist ---
   getWishlist(): WishlistItem[] {
     return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
   }
@@ -522,28 +523,59 @@ class MockDB {
     const item = items.find((i) => i.id === itemId);
     if (!item) return;
 
-    if (item.isTaken && item.takenByUserId === userId) {
+    // Lógica local: prender/apagar reserva
+    const wasTakenByThisUser =
+      item.isTaken && item.takenByUserId === userId;
+
+    if (wasTakenByThisUser) {
+      // El mismo usuario libera el regalo
       item.isTaken = false;
       item.takenByUserId = undefined;
     } else if (!item.isTaken) {
+      // El regalo estaba libre, lo toma este usuario
       item.isTaken = true;
       item.takenByUserId = userId;
+    } else {
+      // Por seguridad: si está tomado por otro, no tocamos nada
+      return;
     }
+
+    // Guardamos en localStorage y avisamos a los componentes (useData)
     this.save("wishlist", items);
 
+    // 🔄 Espejo en Supabase
     try {
+      const payload = {
+        is_taken: item.isTaken,
+        taken_by_user_id: item.isTaken
+          ? item.takenByUserId ?? null
+          : null,
+      };
+
+      console.log("[Supabase][wishlist] payload", {
+        id: item.id,
+        ...payload,
+      });
+
       void supabase
         .from("wishlist_items")
-        .update({
-          is_taken: item.isTaken,
-          taken_by_user_id: item.isTaken ? userId : null,
-        })
-        .eq("id", item.id);
+        .update(payload)
+        .eq("id", item.id)
+        .then(({ status, error, data }) => {
+          console.log("[Supabase][wishlist] result", {
+            status,
+            error,
+            data,
+          });
+          if (error) {
+            console.error("[Supabase][wishlist] error", error);
+          }
+        });
     } catch (err) {
       console.error("[Supabase][toggleWishlistItem] error", err);
     }
   }
-}
+
 
 export const db = new MockDB();
 
