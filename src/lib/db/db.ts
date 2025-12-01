@@ -521,3 +521,8 @@ class MockDB {
 }
 
 export const db = new MockDB();
+
+// 🔍 Solo para debug en el navegador
+if (typeof window !== "undefined") {
+  (window as any).db = db;
+}
