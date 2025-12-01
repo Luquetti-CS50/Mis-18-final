@@ -36,7 +36,9 @@ class MockDB {
     window.dispatchEvent(new Event(`db_update_${key}`));
   }
 
-  // --- Supabase: sync inicial -> cache local (solo lectura desde Supabase) ---
+  // ────────────────────────────────────────────────
+  // SYNC INICIAL DESDE SUPABASE → CACHE LOCAL
+  // ────────────────────────────────────────────────
   async syncFromSupabase() {
     try {
       // 1) USERS
@@ -70,8 +72,12 @@ class MockDB {
                 null,
               musicComment: row.music_comment ?? base?.musicComment,
               isAdmin: (row.is_admin ?? base?.isAdmin ?? false) as boolean,
-              hasLoggedIn: (row.has_logged_in ?? base?.hasLoggedIn ?? false) as boolean,
+              hasLoggedIn: (row.has_logged_in ??
+                base?.hasLoggedIn ??
+                false) as boolean,
               isChild: (row.is_child ?? base?.isChild ?? false) as boolean,
+              nicknames: base?.nicknames ?? [],
+              familyCode: (base as any)?.familyCode,
             };
 
             return merged;
@@ -97,7 +103,7 @@ class MockDB {
         }
       }
 
-      // 3) WISHLIST (Supabase = estado, seeds = metadata)
+      // 3) WISHLIST (estado en Supabase, metadata en seeds)
       {
         const { data, error } = await supabase
           .from("wishlist_items")
@@ -111,7 +117,6 @@ class MockDB {
           for (const row of data) {
             const base = seedMap.get(row.id);
             if (!base) {
-              // Ítem en DB sin metadata en seeds: inventamos lo mínimo
               itemsFromDb.push({
                 id: row.id,
                 name: row.id,
@@ -131,7 +136,6 @@ class MockDB {
             });
           }
 
-          // Aseguramos que todos los del seed existan en la lista final
           for (const base of SEED_WISHLIST) {
             if (!itemsFromDb.some((i) => i.id === base.id)) {
               itemsFromDb.push({
@@ -206,9 +210,10 @@ class MockDB {
     }
   }
 
-  // --- Users ---
+  // ────────────────────────────────────────────────
+  // USERS
+  // ────────────────────────────────────────────────
   getUsers(): User[] {
-    // Ahora el seed es [], Supabase es la única fuente real
     return this.load<User[]>("users", [] as User[]);
   }
 
@@ -217,7 +222,6 @@ class MockDB {
     const normalized = normalizeName(name);
     const user = users.find((u) => u.normalizedName === normalized);
 
-    // Si no existe o es child, no logea
     if (!user || user.isChild) return null;
 
     if (!user.hasLoggedIn) {
@@ -227,7 +231,7 @@ class MockDB {
       );
       this.save("users", updatedUsers);
 
-      // espejo Supabase
+      // espejo Supabase sólo con has_logged_in
       try {
         void supabase
           .from("users")
@@ -248,12 +252,11 @@ class MockDB {
     const existing = users.find((u) => u.id === userId);
     if (!existing) return null;
 
-    // 1) Actualizamos el usuario en memoria
     const updated: User = { ...existing, ...patch };
     const next = users.map((u) => (u.id === userId ? updated : u));
     this.save("users", next);
 
-    // 2) Espejo en Supabase SOLO con los campos que realmente cambiaron
+    // Espejo en Supabase SOLO con los campos que realmente cambiaron
     try {
       const payload: any = {};
 
@@ -286,7 +289,6 @@ class MockDB {
           (updated as any).seatAssignedByUserId ?? null;
       }
 
-      // Si no hay nada que mandar, no hacemos update
       if (Object.keys(payload).length > 0) {
         void supabase.from("users").update(payload).eq("id", updated.id);
       }
@@ -297,14 +299,16 @@ class MockDB {
     return updated;
   }
 
-
-  // --- Tables ---
+  // ────────────────────────────────────────────────
+  // TABLES
+  // ────────────────────────────────────────────────
   getTables(): Table[] {
-    // seed vacío, la verdad viene de Supabase
     return this.load<Table[]>("tables", [] as Table[]);
   }
 
-  // --- Songs ---
+  // ────────────────────────────────────────────────
+  // SONGS
+  // ────────────────────────────────────────────────
   getSongs(): Song[] {
     return this.load<Song[]>("songs", []);
   }
@@ -312,7 +316,6 @@ class MockDB {
   async searchSongs(query: string): Promise<Song[]> {
     if (!query.trim()) return [];
 
-    // Simulación de búsqueda local con MOCK_SONGS_DB
     const q = query.toLowerCase();
     const results = MOCK_SONGS_DB.filter(
       (s) =>
@@ -337,7 +340,6 @@ class MockDB {
 
   addSong(song: Song) {
     const songs = this.getSongs();
-    // Evitar duplicados exactos (mismo título+artista+user)
     if (
       !songs.some(
         (s) =>
@@ -349,7 +351,6 @@ class MockDB {
       const next = [...songs, song];
       this.save("songs", next);
 
-      // Espejo en Supabase
       try {
         void supabase.from("songs").insert({
           id: song.id,
@@ -366,7 +367,9 @@ class MockDB {
     }
   }
 
-  // --- Music Preferences ---
+  // ────────────────────────────────────────────────
+  // MUSIC PREFERENCES
+  // ────────────────────────────────────────────────
   getPreferences(): MusicPreference[] {
     return this.load<MusicPreference[]>("prefs", []);
   }
@@ -376,7 +379,6 @@ class MockDB {
     const next = [...prefs, pref];
     this.save("prefs", next);
 
-    // Espejo en Supabase
     try {
       void supabase.from("music_preferences").insert({
         id: pref.id,
@@ -392,7 +394,6 @@ class MockDB {
     const prefs = this.getPreferences().filter((p) => p.id !== id);
     this.save("prefs", prefs);
 
-    // Espejo en Supabase
     try {
       void supabase.from("music_preferences").delete().eq("id", id);
     } catch (err) {
@@ -400,7 +401,9 @@ class MockDB {
     }
   }
 
-  // --- Music Comments ---
+  // ────────────────────────────────────────────────
+  // MUSIC COMMENTS
+  // ────────────────────────────────────────────────
   getMusicComments(): MusicComment[] {
     return this.load<MusicComment[]>("musicComments", []);
   }
@@ -423,7 +426,6 @@ class MockDB {
     const nextComments = [...comments, newComment];
     this.save("musicComments", nextComments);
 
-    // Actualizamos el user.musicComment con el último comentario
     const users = this.getUsers();
     const existing = users.find((u) => u.id === userId);
     if (existing) {
@@ -436,7 +438,6 @@ class MockDB {
       );
       this.save("users", nextUsers);
 
-      // Espejo en Supabase
       try {
         void supabase.from("music_comments").insert({
           id: newComment.id,
@@ -467,7 +468,6 @@ class MockDB {
 
     const userId = target.userId;
 
-    // Recalcular user.musicComment para ese usuario
     const users = this.getUsers();
     const existing = users.find((u) => u.id === userId);
     if (!existing) return;
@@ -490,7 +490,6 @@ class MockDB {
     );
     this.save("users", nextUsers);
 
-    // Espejo en Supabase
     try {
       void supabase.from("music_comments").delete().eq("id", commentId);
 
@@ -503,9 +502,10 @@ class MockDB {
     }
   }
 
-  // --- Wishlist ---
+  // ────────────────────────────────────────────────
+  // WISHLIST
+  // ────────────────────────────────────────────────
   getWishlist(): WishlistItem[] {
-    // Metadata (nombre, imagen, link) viene de seeds; estado viene de Supabase
     return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
   }
 
@@ -523,7 +523,6 @@ class MockDB {
     }
     this.save("wishlist", items);
 
-    // Espejo en Supabase
     try {
       void supabase
         .from("wishlist_items")
@@ -540,7 +539,7 @@ class MockDB {
 
 export const db = new MockDB();
 
-// 🔍 Solo para debug en el navegador
+// Para debug desde consola
 if (typeof window !== "undefined") {
   (window as any).db = db;
 }
