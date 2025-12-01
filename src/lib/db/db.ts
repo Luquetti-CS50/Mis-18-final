@@ -31,12 +31,11 @@ class MockDB {
     }
   }
 
-private save(key: string, data: any) {
-  localStorage.setItem(`my18app_${key}`, JSON.stringify(data));
-  // ✅ volver al nombre de evento original:
-  window.dispatchEvent(new Event(`db_update_${key}`));
-}
-
+  private save(key: string, data: any) {
+    localStorage.setItem(`my18app_${key}`, JSON.stringify(data));
+    // 👇 este nombre de evento es el que escucha useData
+    window.dispatchEvent(new Event(`db_update_${key}`));
+  }
 
   // ────────────────────────────────────────────────
   // SYNC GLOBAL DESDE SUPABASE
@@ -105,7 +104,7 @@ private save(key: string, data: any) {
         }
       }
 
-      // 3) WISHLIST (estado en Supabase, metadata en seeds)
+      // 3) WISHLIST
       {
         const { data, error } = await supabase
           .from("wishlist_items")
@@ -172,14 +171,23 @@ private save(key: string, data: any) {
         }
       }
 
-      // 5) SONGS (MOCK LOCAL, sin Supabase)
+      // 5) SONGS (desde tabla songs de Supabase, no mocks)
       {
-        const songs: Song[] = MOCK_SONGS_DB.map((s, i) => ({
-          id: s.id ?? `song_${i}`,
-          title: s.title ?? "Canción sin título",
-          artist: s.artist ?? "Artista desconocido",
-        }));
-        this.save("songs", songs);
+        const { data, error } = await supabase.from("songs").select("*");
+        if (!error && data) {
+          const songs: Song[] = data.map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            artist: row.artist,
+            platform: row.platform,
+            thumbnailUrl: row.thumbnail_url,
+            platformUrl: row.platform_url ?? undefined,
+            suggestedByUserId: row.suggested_by_user_id,
+          }));
+          this.save("songs", songs);
+        } else if (error) {
+          console.error("[Supabase][sync songs] error", error);
+        }
       }
 
       // 6) MUSIC COMMENTS
@@ -253,7 +261,6 @@ private save(key: string, data: any) {
     const next = users.map((u) => (u.id === userId ? updated : u));
     this.save("users", next);
 
-    // Espejo en Supabase SOLO con los campos que realmente cambiaron
     try {
       const payload: any = {};
 
@@ -301,7 +308,7 @@ private save(key: string, data: any) {
   }
 
   // ────────────────────────────────────────────────
-  // SONGS (mock local)
+  // SONGS (mock search) 
   // ────────────────────────────────────────────────
   getSongs(): Song[] {
     return this.load<Song[]>("songs", []);
@@ -339,24 +346,59 @@ private save(key: string, data: any) {
     this.save("prefs", next);
 
     try {
-      // Dejamos que Supabase genere el ID (uuid / default)
-      void supabase.from("music_preferences").insert({
-        user_id: pref.userId,
-        genre: pref.genre,
-      });
+      void supabase
+        .from("music_preferences")
+        .insert({
+          user_id: pref.userId,
+          genre: pref.genre,
+        })
+        .then(({ status, error, data }) => {
+          if (error) {
+            console.error("[Supabase][addPreference] error", {
+              status,
+              error,
+            });
+          } else {
+            console.log("[Supabase][addPreference] ok", {
+              status,
+              data,
+            });
+          }
+        });
     } catch (err) {
-      console.error("[Supabase][addPreference] error", err);
+      console.error("[Supabase][addPreference] error (throw)", err);
     }
   }
 
   removePreference(id: string) {
-    const prefs = this.getPreferences().filter((p) => p.id !== id);
-    this.save("prefs", prefs);
+    const prefs = this.getPreferences();
+    const target = prefs.find((p) => p.id === id);
+    const remaining = prefs.filter((p) => p.id !== id);
+    this.save("prefs", remaining);
+
+    if (!target) return;
 
     try {
-      void supabase.from("music_preferences").delete().eq("id", id);
+      void supabase
+        .from("music_preferences")
+        .delete()
+        .eq("user_id", target.userId)
+        .eq("genre", target.genre)
+        .then(({ status, error, data }) => {
+          if (error) {
+            console.error("[Supabase][removePreference] error", {
+              status,
+              error,
+            });
+          } else {
+            console.log("[Supabase][removePreference] ok", {
+              status,
+              data,
+            });
+          }
+        });
     } catch (err) {
-      console.error("[Supabase][removePreference] error", err);
+      console.error("[Supabase][removePreference] error (throw)", err);
     }
   }
 
@@ -398,18 +440,33 @@ private save(key: string, data: any) {
       this.save("users", nextUsers);
 
       try {
-        void supabase.from("music_comments").insert({
-          // Dejamos que Supabase genere el ID y created_at
-          user_id: userId,
-          text: newComment.text,
-        });
+        void supabase
+          .from("music_comments")
+          .insert({
+            user_id: userId,
+            text: newComment.text,
+            created_at: newComment.createdAt,
+          })
+          .then(({ status, error, data }) => {
+            if (error) {
+              console.error("[Supabase][addMusicComment] error", {
+                status,
+                error,
+              });
+            } else {
+              console.log("[Supabase][addMusicComment] ok", {
+                status,
+                data,
+              });
+            }
+          });
 
         void supabase
           .from("users")
           .update({ music_comment: trimmed })
           .eq("id", userId);
       } catch (err) {
-        console.error("[Supabase][addMusicComment] error", err);
+        console.error("[Supabase][addMusicComment] error (throw)", err);
       }
     }
 
@@ -449,14 +506,32 @@ private save(key: string, data: any) {
     this.save("users", nextUsers);
 
     try {
-      void supabase.from("music_comments").delete().eq("id", commentId);
+      void supabase
+        .from("music_comments")
+        .delete()
+        .eq("user_id", userId)
+        .eq("text", target.text)
+        .eq("created_at", target.createdAt)
+        .then(({ status, error, data }) => {
+          if (error) {
+            console.error("[Supabase][deleteMusicComment] error", {
+              status,
+              error,
+            });
+          } else {
+            console.log("[Supabase][deleteMusicComment] ok", {
+              status,
+              data,
+            });
+          }
+        });
 
       void supabase
         .from("users")
         .update({ music_comment: lastText ?? null })
         .eq("id", userId);
     } catch (err) {
-      console.error("[Supabase][deleteMusicComment] error", err);
+      console.error("[Supabase][deleteMusicComment] error (throw)", err);
     }
   }
 
@@ -472,27 +547,21 @@ private save(key: string, data: any) {
     const item = items.find((i) => i.id === itemId);
     if (!item) return;
 
-    // Lógica local: prender/apagar reserva
     const wasTakenByThisUser =
       item.isTaken && item.takenByUserId === userId;
 
     if (wasTakenByThisUser) {
-      // El mismo usuario libera el regalo
       item.isTaken = false;
       item.takenByUserId = undefined;
     } else if (!item.isTaken) {
-      // El regalo estaba libre, lo toma este usuario
       item.isTaken = true;
       item.takenByUserId = userId;
     } else {
-      // Por seguridad: si está tomado por otro, no tocamos nada
       return;
     }
 
-    // Guardamos en localStorage y avisamos a los componentes (useData)
     this.save("wishlist", items);
 
-    // 🔄 Espejo en Supabase
     try {
       const payload = {
         is_taken: item.isTaken,
@@ -525,7 +594,6 @@ private save(key: string, data: any) {
 
 export const db = new MockDB();
 
-// Para debug desde consola
 if (typeof window !== "undefined") {
   (window as any).db = db;
 }
