@@ -7,9 +7,15 @@ export const AppProviders: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   useEffect(() => {
-    // Disparamos el sync inicial desde Supabase -> MockDB/localStorage
-    // No esperamos nada porque la UI arranca con seeds/local y se actualiza cuando llegue.
+    // Sync inicial
     db.syncFromSupabase?.();
+
+    // 🔁 Refresco cada 15 segundos
+    const interval = setInterval(() => {
+      db.syncFromSupabase?.();
+    }, 10000); // 15000 ms = 15s
+
+    return () => clearInterval(interval);
   }, []);
 
   return <AuthProvider>{children}</AuthProvider>;
