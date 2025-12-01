@@ -31,14 +31,164 @@ class MockDB {
     window.dispatchEvent(new Event(`db_update_${key}`));
   }
 
+  // --- Supabase: sync inicial -> localStorage ---
+  async syncFromSupabase() {
+    try {
+      // 1) USERS
+      {
+        const { data, error } = await supabase.from("users").select("*");
+        if (!error && data) {
+          const users: User[] = data.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            normalizedName: row.normalized_name,
+            nicknames: undefined,
+            familyCode: (row as any).family_code ?? undefined,
+            attendanceStatus: (row as any).attendance_status ?? "pending",
+            tableId: row.table_id ?? null,
+            seatAssignedByUserId:
+              (row as any).seat_assigned_by_user_id ?? null,
+            musicComment: row.music_comment ?? undefined,
+            isAdmin: !!row.is_admin,
+            hasLoggedIn: !!row.has_logged_in,
+            isChild: !!row.is_child,
+          }));
+          this.save("users", users);
+        } else if (error) {
+          console.error("[Supabase][sync users] error", error);
+        }
+      }
+
+      // 2) TABLES
+      {
+        const { data, error } = await supabase.from("tables").select("*");
+        if (!error && data) {
+          const tables: Table[] = data.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            capacity: row.capacity,
+          }));
+          this.save("tables", tables);
+        } else if (error) {
+          console.error("[Supabase][sync tables] error", error);
+        }
+      }
+
+      // 3) WISHLIST
+      {
+        const { data, error } = await supabase
+          .from("wishlist_items")
+          .select("*");
+        if (!error && data) {
+          const seedMap = new Map(
+            SEED_WISHLIST.map((item) => [item.id, item]),
+          );
+
+          const itemsFromDb: WishlistItem[] = [];
+          for (const row of data) {
+            const base = seedMap.get(row.id);
+            if (!base) {
+              itemsFromDb.push({
+                id: row.id,
+                name: row.id,
+                imageUrl: "",
+                isTaken: !!row.is_taken,
+                takenByUserId: row.taken_by_user_id ?? undefined,
+              });
+              continue;
+            }
+            itemsFromDb.push({
+              id: base.id,
+              name: base.name,
+              imageUrl: base.imageUrl,
+              linkUrl: base.linkUrl,
+              isTaken: !!row.is_taken,
+              takenByUserId: row.taken_by_user_id ?? undefined,
+            });
+          }
+
+          // Agregamos los del seed que no existan en la DB
+          for (const base of SEED_WISHLIST) {
+            if (!itemsFromDb.some((i) => i.id === base.id)) {
+              itemsFromDb.push({
+                ...base,
+                isTaken: false,
+                takenByUserId: undefined,
+              });
+            }
+          }
+
+          this.save("wishlist", itemsFromDb);
+        } else if (error) {
+          console.error("[Supabase][sync wishlist] error", error);
+        }
+      }
+
+      // 4) MUSIC PREFERENCES
+      {
+        const { data, error } = await supabase
+          .from("music_preferences")
+          .select("*");
+        if (!error && data) {
+          const prefs: MusicPreference[] = data.map((row: any) => ({
+            id: row.id,
+            userId: row.user_id,
+            genre: row.genre,
+          }));
+          this.save("prefs", prefs);
+        } else if (error) {
+          console.error("[Supabase][sync prefs] error", error);
+        }
+      }
+
+      // 5) SONGS
+      {
+        const { data, error } = await supabase.from("songs").select("*");
+        if (!error && data) {
+          const songs: Song[] = data.map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            artist: row.artist,
+            platform: row.platform,
+            thumbnailUrl: row.thumbnail_url,
+            platformUrl: row.platform_url ?? undefined,
+            suggestedByUserId: row.suggested_by_user_id,
+          }));
+          this.save("songs", songs);
+        } else if (error) {
+          console.error("[Supabase][sync songs] error", error);
+        }
+      }
+
+      // 6) MUSIC COMMENTS
+      {
+        const { data, error } = await supabase
+          .from("music_comments")
+          .select("*");
+        if (!error && data) {
+          const comments: MusicComment[] = data.map((row: any) => ({
+            id: row.id,
+            userId: row.user_id,
+            text: row.text,
+            createdAt: row.created_at,
+          }));
+          this.save("musicComments", comments);
+        } else if (error) {
+          console.error("[Supabase][sync music_comments] error", error);
+        }
+      }
+    } catch (err) {
+      console.error("[Supabase][syncFromSupabase] error", err);
+    }
+  }
+
   // --- Users ---
   getUsers(): User[] {
     return this.load<User[]>("users", SEED_USERS);
   }
 
   /**
-   * Versión original de login (ya casi no la usamos directamente),
-   * la dejamos por compatibilidad.
+   * Versión original de login (compatibilidad).
    */
   login(name: string): User | null {
     const users = this.getUsers();
@@ -51,7 +201,7 @@ class MockDB {
     if (!user.hasLoggedIn) {
       const updatedUser: User = { ...user, hasLoggedIn: true };
       const updatedUsers = users.map((u) =>
-        u.id === updatedUser.id ? updatedUser : u
+        u.id === updatedUser.id ? updatedUser : u,
       );
       this.save("users", updatedUsers);
       return updatedUser;
@@ -72,7 +222,7 @@ class MockDB {
     const next = users.map((u) => (u.id === userId ? updated : u));
     this.save("users", next);
 
-    // 🔄 Espejo en Supabase (no esperamos la promesa)
+    // Espejo en Supabase (no bloqueamos la UI si falla)
     try {
       const payload: any = {
         name: updated.name,
@@ -84,7 +234,6 @@ class MockDB {
         is_child: !!updated.isChild,
       };
 
-      // Campos opcionales que existen en el modelo User pero no en la tabla original
       if ((updated as any).attendanceStatus !== undefined) {
         payload.attendance_status = (updated as any).attendanceStatus ?? null;
       }
@@ -93,17 +242,13 @@ class MockDB {
           (updated as any).seatAssignedByUserId ?? null;
       }
 
-      void supabase
-        .from("users")
-        .update(payload)
-        .eq("id", updated.id);
+      void supabase.from("users").update(payload).eq("id", updated.id);
     } catch (err) {
       console.error("[Supabase][updateUser] error", err);
     }
 
     return updated;
   }
-
 
   // --- Tables ---
   getTables(): Table[] {
@@ -123,7 +268,7 @@ class MockDB {
       const results = MOCK_SONGS_DB.filter(
         (s) =>
           s.title?.toLowerCase().includes(q) ||
-          s.artist?.toLowerCase().includes(q)
+          s.artist?.toLowerCase().includes(q),
       );
 
       const songs: Song[] = results.map((r, i) => ({
@@ -140,7 +285,7 @@ class MockDB {
     });
   }
 
-addSong(song: Song) {
+  addSong(song: Song) {
     const songs = this.getSongs();
     // Evitar duplicados exactos (mismo título+artista+user)
     if (
@@ -148,13 +293,13 @@ addSong(song: Song) {
         (s) =>
           s.title.toLowerCase() === song.title.toLowerCase() &&
           s.artist.toLowerCase() === song.artist.toLowerCase() &&
-          s.suggestedByUserId === song.suggestedByUserId
+          s.suggestedByUserId === song.suggestedByUserId,
       )
     ) {
       const next = [...songs, song];
       this.save("songs", next);
 
-      // 🔄 Espejo en Supabase
+      // Espejo en Supabase
       try {
         void supabase.from("songs").insert({
           id: song.id,
@@ -181,7 +326,7 @@ addSong(song: Song) {
     const next = [...prefs, pref];
     this.save("prefs", next);
 
-    // 🔄 Espejo en Supabase
+    // Espejo en Supabase
     try {
       void supabase.from("music_preferences").insert({
         id: pref.id,
@@ -197,14 +342,13 @@ addSong(song: Song) {
     const prefs = this.getPreferences().filter((p) => p.id !== id);
     this.save("prefs", prefs);
 
-    // 🔄 Espejo en Supabase
+    // Espejo en Supabase
     try {
       void supabase.from("music_preferences").delete().eq("id", id);
     } catch (err) {
       console.error("[Supabase][removePreference] error", err);
     }
   }
-
 
   // --- Music Comments (nuevo modelo) ---
   getMusicComments(): MusicComment[] {
@@ -213,8 +357,7 @@ addSong(song: Song) {
 
   /**
    * Agrega un nuevo comentario musical para un usuario.
-   * También mantiene user.musicComment con el último comentario,
-   * para que Home siga sabiendo si ya comentó algo.
+   * También mantiene user.musicComment con el último comentario.
    */
   addMusicComment(userId: string, text: string): MusicComment {
     const trimmed = text.trim();
@@ -243,11 +386,11 @@ addSong(song: Song) {
         musicComment: trimmed,
       };
       const nextUsers = users.map((u) =>
-        u.id === userId ? updatedUser : u
+        u.id === userId ? updatedUser : u,
       );
       this.save("users", nextUsers);
 
-      // 🔄 Espejo en Supabase (comentario + último comentario del user)
+      // Espejo en Supabase
       try {
         void supabase.from("music_comments").insert({
           id: newComment.id,
@@ -267,7 +410,6 @@ addSong(song: Song) {
 
     return newComment;
   }
-
 
   /**
    * Elimina un comentario. Recalcula user.musicComment para ese usuario:
@@ -303,11 +445,11 @@ addSong(song: Song) {
     };
 
     const nextUsers = users.map((u) =>
-      u.id === userId ? updatedUser : u
+      u.id === userId ? updatedUser : u,
     );
     this.save("users", nextUsers);
 
-    // 🔄 Espejo en Supabase (borrar comentario + actualizar último texto)
+    // Espejo en Supabase
     try {
       void supabase.from("music_comments").delete().eq("id", commentId);
 
@@ -320,40 +462,38 @@ addSong(song: Song) {
     }
   }
 
-
   // --- Wishlist ---
-getWishlist(): WishlistItem[] {
- return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
-}
+  getWishlist(): WishlistItem[] {
+    return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
+  }
 
-toggleWishlistItem(itemId: string, userId: string) {
- const items = this.getWishlist();
- const item = items.find((i) => i.id === itemId);
- if (!item) return;
+  toggleWishlistItem(itemId: string, userId: string) {
+    const items = this.getWishlist();
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return;
 
- if (item.isTaken && item.takenByUserId === userId) {
-   item.isTaken = false;
-   item.takenByUserId = undefined;
- } else if (!item.isTaken) {
-   item.isTaken = true;
-   item.takenByUserId = userId;
- }
+    if (item.isTaken && item.takenByUserId === userId) {
+      item.isTaken = false;
+      item.takenByUserId = undefined;
+    } else if (!item.isTaken) {
+      item.isTaken = true;
+      item.takenByUserId = userId;
+    }
+    this.save("wishlist", items);
 
- this.save("wishlist", items);
-
- // 🔄 (si querés el espejo Supabase, va acá adentro)
- // try {
- //   void supabase
- //     .from("wishlist_items")
- //     .update({
- //       is_taken: item.isTaken,
- //       taken_by_user_id: item.isTaken ? userId : null,
- //     })
- //     .eq("id", item.id);
- // } catch (err) {
- //   console.error("[Supabase][toggleWishlistItem] error", err);
- // }
-}
+    // Espejo en Supabase
+    try {
+      void supabase
+        .from("wishlist_items")
+        .update({
+          is_taken: item.isTaken,
+          taken_by_user_id: item.isTaken ? userId : null,
+        })
+        .eq("id", item.id);
+    } catch (err) {
+      console.error("[Supabase][toggleWishlistItem] error", err);
+    }
+  }
 }
 
 export const db = new MockDB();
