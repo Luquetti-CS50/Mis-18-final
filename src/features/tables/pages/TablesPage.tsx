@@ -4,6 +4,7 @@ import type { User, Table } from "../../../types";
 import { db } from "../../../lib/db";
 import { PageTitle } from "../../../components/ui/PageTitle";
 import { getFamilyGroupByUserId } from "../../../lib/db/families";
+import { supabase } from "../../../lib/db/supabaseClient";
 
 interface TablesPageProps {
   user: User;
@@ -16,10 +17,13 @@ export const TablesPage: React.FC<TablesPageProps> = ({ user }) => {
 
   // Estado para el modal de familia
   const [showFamilyModal, setShowFamilyModal] = useState(false);
-  const [selectedTableForFamily, setSelectedTableForFamily] = useState<Table | null>(null);
-  const [familySelection, setFamilySelection] = useState<Record<string, boolean>>({});
+  const [selectedTableForFamily, setSelectedTableForFamily] =
+    useState<Table | null>(null);
+  const [familySelection, setFamilySelection] = useState<
+    Record<string, boolean>
+  >({});
 
-  // Cargar datos desde el db mock
+  // Cargar datos desde DB
   useEffect(() => {
     const u = db.getUsers();
     const t = db.getTables();
@@ -36,87 +40,95 @@ export const TablesPage: React.FC<TablesPageProps> = ({ user }) => {
 
   const familyGroup = useMemo(
     () => getFamilyGroupByUserId(currentUser.id),
-    [currentUser.id]
+    [currentUser.id],
   );
 
-  // Helper para recargar solo la lista de usuarios tras una actualización
   const refreshUsers = () => {
     const u = db.getUsers();
     setAllUsers(u);
   };
 
-  // Ocupación por mesa
-  const guestsByTable = useMemo(() => {
-    const map: Record<string, User[]> = {};
-    tables.forEach((t) => {
-      map[t.id] = [];
+  // 🔹 Helper: aplicar cambio de mesa en DB + Supabase
+  const persistTableChange = async (
+    userId: string,
+    tableId: string | null,
+    attendanceStatus: string,
+    seatAssignedByUserId: string | null,
+  ) => {
+    // 1) Actualizamos cache local / lógica interna
+    db.updateUser(userId, {
+      tableId,
+      attendanceStatus: attendanceStatus as any,
+      seatAssignedByUserId: seatAssignedByUserId ?? undefined,
     });
-    allUsers.forEach((u) => {
-      if (u.tableId && map[u.tableId]) {
-        map[u.tableId].push(u);
-      }
-    });
-    return map;
-  }, [allUsers, tables]);
 
-  const handleMarkGoingWithoutTable = () => {
-    // Si ya tiene mesa, este botón no debería aparecer, pero lo blindamos igual
+    // 2) Reflejamos en Supabase de forma explícita
+    try {
+      const payload: any = {
+        table_id: tableId,
+        attendance_status: attendanceStatus,
+        seat_assigned_by_user_id: seatAssignedByUserId,
+      };
+
+      await supabase.from("users").update(payload).eq("id", userId);
+    } catch (err) {
+      console.error("[TablesPage] Error actualizando mesa en Supabase", err);
+    }
+
+    // 3) Refrescamos la vista con lo que tenga el cache
+    refreshUsers();
+  };
+
+  const handleMarkGoingWithoutTable = async () => {
     if (currentUser.tableId) return;
 
-    db.updateUser(currentUser.id, {
-      attendanceStatus: "going_no_table",
-      tableId: null,
-      seatAssignedByUserId: null,
-    });
-    refreshUsers();
+    await persistTableChange(
+      currentUser.id,
+      null,
+      "going_no_table",
+      null,
+    );
   };
 
-  const handleJoinTable = (table: Table) => {
-    db.updateUser(currentUser.id, {
-      tableId: table.id,
-      attendanceStatus: "going_with_table",
-      seatAssignedByUserId: currentUser.id,
-    });
-    refreshUsers();
+  const handleJoinTable = async (table: Table) => {
+    await persistTableChange(
+      currentUser.id,
+      table.id,
+      "going_with_table",
+      currentUser.id,
+    );
   };
 
-  const handleChangeTable = (table: Table) => {
-    db.updateUser(currentUser.id, {
-      tableId: table.id,
-      attendanceStatus: "going_with_table",
-      seatAssignedByUserId: currentUser.id,
-    });
-    refreshUsers();
+  const handleChangeTable = async (table: Table) => {
+    await persistTableChange(
+      currentUser.id,
+      table.id,
+      "going_with_table",
+      currentUser.id,
+    );
   };
 
-  const handleLeaveTable = () => {
+  const handleLeaveTable = async () => {
     if (!currentUser.tableId) return;
 
     const confirmed = window.confirm(
-      "No tener ninguna mesa hace que se entienda como que no vas a asistir.\n\n¿Estás segur@ de que querés abandonar tu mesa?"
+      "No tener ninguna mesa hace que se entienda como que no vas a asistir.\n\n¿Estás segur@ de que querés abandonar tu mesa?",
     );
 
     if (!confirmed) {
-      // Se arrepintió, no tocamos nada
       return;
     }
 
-    db.updateUser(currentUser.id, {
-      tableId: null,
-      attendanceStatus: "pending",
-      seatAssignedByUserId: null,
-    });
-    refreshUsers();
+    await persistTableChange(currentUser.id, null, "pending", null);
   };
 
   // Abrir modal de familia para una mesa
   const openFamilyModalForTable = (table: Table) => {
     if (!familyGroup) {
-      // Por alguna razón no hay grupo, caemos a comportamiento normal
       if (currentUser.tableId) {
-        handleChangeTable(table);
+        void handleChangeTable(table);
       } else {
-        handleJoinTable(table);
+        void handleJoinTable(table);
       }
       return;
     }
@@ -124,7 +136,6 @@ export const TablesPage: React.FC<TablesPageProps> = ({ user }) => {
     const { members, children } = familyGroup;
     const allFamilyUsers = [...members, ...children];
 
-    // Inicialmente, solo "yo" tildado
     const initialSelection: Record<string, boolean> = {};
     allFamilyUsers.forEach((u) => {
       initialSelection[u.id] = u.id === currentUser.id;
@@ -142,7 +153,7 @@ export const TablesPage: React.FC<TablesPageProps> = ({ user }) => {
     }));
   };
 
-  const handleConfirmFamilyAssignment = () => {
+  const handleConfirmFamilyAssignment = async () => {
     if (!selectedTableForFamily || !familyGroup) {
       setShowFamilyModal(false);
       return;
@@ -156,23 +167,37 @@ export const TablesPage: React.FC<TablesPageProps> = ({ user }) => {
       .filter((id) => familySelection[id]);
 
     if (selectedIds.length === 0) {
-      // Nada seleccionado → simplemente cerramos
       setShowFamilyModal(false);
       return;
     }
 
-    selectedIds.forEach((id) => {
-      db.updateUser(id, {
-        tableId: selectedTableForFamily.id,
-        attendanceStatus: "going_with_table",
-        seatAssignedByUserId: currentUser.id,
-      });
-    });
+    // Asignamos mesa a todos los seleccionados
+    for (const id of selectedIds) {
+      await persistTableChange(
+        id,
+        selectedTableForFamily.id,
+        "going_with_table",
+        currentUser.id,
+      );
+    }
 
     setShowFamilyModal(false);
     setSelectedTableForFamily(null);
-    refreshUsers();
   };
+
+  // Ocupación por mesa
+  const guestsByTable = useMemo(() => {
+    const map: Record<string, User[]> = {};
+    tables.forEach((t) => {
+      map[t.id] = [];
+    });
+    allUsers.forEach((u) => {
+      if (u.tableId && map[u.tableId]) {
+        map[u.tableId].push(u);
+      }
+    });
+    return map;
+  }, [allUsers, tables]);
 
   if (loading) {
     return (
@@ -255,17 +280,15 @@ export const TablesPage: React.FC<TablesPageProps> = ({ user }) => {
             const handlePrimaryClick = () => {
               if (isMine) return;
 
-              // Si tenés grupo familiar, abrimos el modal de "Familia"
               if (familyGroup) {
                 openFamilyModalForTable(table);
                 return;
               }
 
-              // Si no tenés familia definida, comportamiento normal
               if (hasAnyTable) {
-                handleChangeTable(table);
+                void handleChangeTable(table);
               } else {
-                handleJoinTable(table);
+                void handleJoinTable(table);
               }
             };
 
@@ -346,7 +369,9 @@ export const TablesPage: React.FC<TablesPageProps> = ({ user }) => {
 
             <p className="text-[11px] text-cyan-300 mb-2">
               Mesa seleccionada:{" "}
-              <span className="font-semibold">{selectedTableForFamily.name}</span>
+              <span className="font-semibold">
+                {selectedTableForFamily.name}
+              </span>
             </p>
 
             <div className="max-h-40 overflow-y-auto rounded-md border border-white/10 bg-black/60 mb-3">
