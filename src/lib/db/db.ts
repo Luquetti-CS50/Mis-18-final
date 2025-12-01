@@ -31,10 +31,12 @@ class MockDB {
     }
   }
 
-  private save(key: string, data: any) {
-    localStorage.setItem(`my18app_${key}`, JSON.stringify(data));
-    window.dispatchEvent(new Event(`my18app_update_${key}`));
-  }
+private save(key: string, data: any) {
+  localStorage.setItem(`my18app_${key}`, JSON.stringify(data));
+  // ✅ volver al nombre de evento original:
+  window.dispatchEvent(new Event(`db_update_${key}`));
+}
+
 
   // ────────────────────────────────────────────────
   // SYNC GLOBAL DESDE SUPABASE
