@@ -33,11 +33,11 @@ class MockDB {
 
   private save(key: string, data: any) {
     localStorage.setItem(`my18app_${key}`, JSON.stringify(data));
-    window.dispatchEvent(new Event(`db_update_${key}`));
+    window.dispatchEvent(new Event(`my18app_update_${key}`));
   }
 
   // ────────────────────────────────────────────────
-  // SYNC INICIAL DESDE SUPABASE → CACHE LOCAL
+  // SYNC GLOBAL DESDE SUPABASE
   // ────────────────────────────────────────────────
   async syncFromSupabase() {
     try {
@@ -126,6 +126,7 @@ class MockDB {
               });
               continue;
             }
+
             itemsFromDb.push({
               id: base.id,
               name: base.name,
@@ -169,23 +170,14 @@ class MockDB {
         }
       }
 
-      // 5) SONGS
+      // 5) SONGS (MOCK LOCAL, sin Supabase)
       {
-        const { data, error } = await supabase.from("songs").select("*");
-        if (!error && data) {
-          const songs: Song[] = data.map((row: any) => ({
-            id: row.id,
-            title: row.title,
-            artist: row.artist,
-            platform: row.platform,
-            thumbnailUrl: row.thumbnail_url,
-            platformUrl: row.platform_url ?? undefined,
-            suggestedByUserId: row.suggested_by_user_id,
-          }));
-          this.save("songs", songs);
-        } else if (error) {
-          console.error("[Supabase][sync songs] error", error);
-        }
+        const songs: Song[] = MOCK_SONGS_DB.map((s, i) => ({
+          id: s.id ?? `song_${i}`,
+          title: s.title ?? "Canción sin título",
+          artist: s.artist ?? "Artista desconocido",
+        }));
+        this.save("songs", songs);
       }
 
       // 6) MUSIC COMMENTS
@@ -225,20 +217,23 @@ class MockDB {
     if (!user || user.isChild) return null;
 
     if (!user.hasLoggedIn) {
-      const updatedUser: User = { ...user, hasLoggedIn: true };
-      const updatedUsers = users.map((u) =>
-        u.id === updatedUser.id ? updatedUser : u,
-      );
-      this.save("users", updatedUsers);
+      const updatedUser: User = {
+        ...user,
+        hasLoggedIn: true,
+      };
 
-      // espejo Supabase sólo con has_logged_in
+      const next = users.map((u) =>
+        u.id === user.id ? updatedUser : u,
+      );
+      this.save("users", next);
+
       try {
         void supabase
           .from("users")
           .update({ has_logged_in: true })
           .eq("id", updatedUser.id);
       } catch (err) {
-        console.error("[Supabase][login] error", err);
+        console.error("[Supabase][login sync] error", err);
       }
 
       return updatedUser;
@@ -269,37 +264,26 @@ class MockDB {
       if ((patch as any).tableId !== undefined) {
         payload.table_id = (updated as any).tableId ?? null;
       }
-      if (patch.musicComment !== undefined) {
-        payload.music_comment = updated.musicComment ?? null;
-      }
-      if (patch.isAdmin !== undefined) {
-        payload.is_admin = !!updated.isAdmin;
-      }
-      if (patch.hasLoggedIn !== undefined) {
-        payload.has_logged_in = !!updated.hasLoggedIn;
-      }
-      if (patch.isChild !== undefined) {
-        payload.is_child = !!updated.isChild;
-      }
-      if ((patch as any).attendanceStatus !== undefined) {
-        payload.attendance_status = (updated as any).attendanceStatus ?? null;
-      }
       if ((patch as any).seatAssignedByUserId !== undefined) {
         payload.seat_assigned_by_user_id =
           (updated as any).seatAssignedByUserId ?? null;
       }
+      if (patch.musicComment !== undefined) {
+        payload.music_comment = updated.musicComment ?? null;
+      }
+      if (patch.isAdmin !== undefined) {
+        payload.is_admin = updated.isAdmin;
+      }
+      if (patch.hasLoggedIn !== undefined) {
+        payload.has_logged_in = updated.hasLoggedIn;
+      }
+      if (patch.isChild !== undefined) {
+        payload.is_child = updated.isChild;
+      }
 
-     if (Object.keys(payload).length > 0) {
-  void supabase
-    .from("users")
-    .update(payload)
-    .eq("id", updated.id)
-    .then(({ data, error, status }) => {
-      console.log("[Supabase][updateUser] payload", payload);
-      console.log("[Supabase][updateUser] result", { status, error, data });
-    });
-}
-
+      if (Object.keys(payload).length > 0) {
+        void supabase.from("users").update(payload).eq("id", userId);
+      }
     } catch (err) {
       console.error("[Supabase][updateUser] error", err);
     }
@@ -311,11 +295,11 @@ class MockDB {
   // TABLES
   // ────────────────────────────────────────────────
   getTables(): Table[] {
-    return this.load<Table[]>("tables", [] as Table[]);
+    return this.load<Table[]>("tables", SEED_TABLES);
   }
 
   // ────────────────────────────────────────────────
-  // SONGS
+  // SONGS (mock local)
   // ────────────────────────────────────────────────
   getSongs(): Song[] {
     return this.load<Song[]>("songs", []);
@@ -335,44 +319,9 @@ class MockDB {
       id: `search_${Date.now()}_${i}`,
       title: r.title ?? "Canción sin título",
       artist: r.artist ?? "Artista desconocido",
-      platform: r.platform ?? "spotify",
-      thumbnailUrl: r.thumbnailUrl ?? "https://via.placeholder.com/100",
-      platformUrl: r.platformUrl,
-      suggestedByUserId: "",
     }));
 
-    return new Promise((resolve) => {
-      setTimeout(() => resolve(songs), 400);
-    });
-  }
-
-  addSong(song: Song) {
-    const songs = this.getSongs();
-    if (
-      !songs.some(
-        (s) =>
-          s.title.toLowerCase() === song.title.toLowerCase() &&
-          s.artist.toLowerCase() === song.artist.toLowerCase() &&
-          s.suggestedByUserId === song.suggestedByUserId,
-      )
-    ) {
-      const next = [...songs, song];
-      this.save("songs", next);
-
-      try {
-        void supabase.from("songs").insert({
-          id: song.id,
-          title: song.title,
-          artist: song.artist,
-          platform: song.platform,
-          thumbnail_url: song.thumbnailUrl,
-          platform_url: song.platformUrl ?? null,
-          suggested_by_user_id: song.suggestedByUserId,
-        });
-      } catch (err) {
-        console.error("[Supabase][addSong] error", err);
-      }
-    }
+    return songs;
   }
 
   // ────────────────────────────────────────────────
@@ -388,8 +337,8 @@ class MockDB {
     this.save("prefs", next);
 
     try {
+      // Dejamos que Supabase genere el ID (uuid / default)
       void supabase.from("music_preferences").insert({
-        id: pref.id,
         user_id: pref.userId,
         genre: pref.genre,
       });
@@ -448,10 +397,9 @@ class MockDB {
 
       try {
         void supabase.from("music_comments").insert({
-          id: newComment.id,
+          // Dejamos que Supabase genere el ID y created_at
           user_id: userId,
           text: newComment.text,
-          created_at: newComment.createdAt,
         });
 
         void supabase
@@ -513,7 +461,6 @@ class MockDB {
   // ────────────────────────────────────────────────
   // WISHLIST
   // ────────────────────────────────────────────────
-  // --- Wishlist ---
   getWishlist(): WishlistItem[] {
     return this.load<WishlistItem[]>("wishlist", SEED_WISHLIST);
   }
@@ -567,9 +514,6 @@ class MockDB {
             error,
             data,
           });
-          if (error) {
-            console.error("[Supabase][wishlist] error", error);
-          }
         });
     } catch (err) {
       console.error("[Supabase][toggleWishlistItem] error", err);
