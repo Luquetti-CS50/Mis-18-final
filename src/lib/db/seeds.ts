@@ -628,6 +628,62 @@ export const SEED_USERS: User[] = [
     familyCode: "M",
   },
 ];
+  // Familia N
+  {
+    id: "N1",
+    name: "Rodrigo Oviedo",
+    normalizedName: "rodrigo oviedo",
+    nicknames: ["Rodri"],
+    familyCode: "N",
+  },
+  {
+    id: "N2",
+    name: "Bárbara Buttafuoco",
+    normalizedName: "barbara buttafuoco",
+    nicknames: ["Barbie"],
+    familyCode: "N",
+  },
+  {
+    id: "N3",
+    name: "Jeremías Oviedo",
+    normalizedName: "jeremias oviedo",
+    nicknames: ["Jere"],
+    familyCode: "N",
+    isChild: true,
+  },
+  {
+    id: "N4",
+    name: "Diana Oviedo",
+    normalizedName: "diana oviedo",
+    nicknames: ["Diana"],
+    familyCode: "N",
+    isChild: true,
+  },
+
+  // Nuevos de Familia J
+  {
+    id: "J4",
+    name: "Manuel Rojas",
+    normalizedName: "manuel rojas",
+    nicknames: ["Manu"],
+    familyCode: "J",
+  },
+  {
+    id: "J5",
+    name: "Selena Rojas",
+    normalizedName: "selena rojas",
+    nicknames: ["Sele"],
+    familyCode: "J",
+  },
+
+  // Nueva de Familia K
+  {
+    id: "K4",
+    name: "Paula Spíndola",
+    normalizedName: "paula spindola",
+    nicknames: ["Pau"],
+    familyCode: "K",
+  },
 
 
 export const SEED_TABLES: Table[] = Array.from({ length: 10 }).map(
